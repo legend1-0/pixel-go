@@ -17,7 +17,10 @@ function CanvasViewport() {
   const isDrawing = useRef(false); // separate from panning-drag
   const lastMouse = useRef({ x: 0, y: 0 });
 const [activeTool, setActiveTool] = useState('pencil'); // 'pencil' | 'eraser'
-  useEffect(() => {
+const [activeColor, setActiveColor] = useState([30, 30, 30, 255]); // [r, g, b, a] 
+const getActiveColor = () => (activeTool === 'eraser' ? [0, 0, 0, 0] : activeColor);
+
+useEffect(() => {
     docRef.current = createDocument({ width: 32, height: 32 });
     historyRef.current = new HistoryManager();
   }, []);
@@ -118,7 +121,6 @@ useEffect(() => {
     const gridY = Math.floor((screenY - pan.y) / zoom);
     return { gridX, gridY };
   };
-  const getActiveColor = () => (activeTool === 'eraser' ? [0, 0, 0, 0] : [30, 30, 30, 255]);
 const paintLine = (x0, y0, x1, y1) => {
     // Bresenham's line algorithm — walks every grid cell between two points
     const dx = Math.abs(x1 - x0);
@@ -170,6 +172,12 @@ const paintAt = (clientX, clientY) => {
 
     lastPaintedCell.current = { gridX, gridY };
   };
+  const hexToRgba = (hex) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return [r, g, b, 255];
+  };
   const handleWheel = (e) => {
     e.preventDefault();
     const zoomSpeed = 0.001;
@@ -208,22 +216,25 @@ const paintAt = (clientX, clientY) => {
     lastPaintedCell.current = null;
   };
 
-  return (
-    <canvas
-      ref={canvasRef}
-      width={500}
-      height={500}
-      style={{
-        border: "1px solid #333",
-        imageRendering: "pixelated",
-        cursor: "crosshair",
-      }}
-      onWheel={handleWheel}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-    />
+ return (
+    <div>
+      <input
+        type="color"
+        onChange={(e) => setActiveColor(hexToRgba(e.target.value))}
+        style={{ marginBottom: '8px', display: 'block' }}
+      />
+      <canvas
+        ref={canvasRef}
+        width={500}
+        height={500}
+        style={{ border: '1px solid #333', imageRendering: 'pixelated', cursor: 'crosshair' }}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      />
+    </div>
   );
 }
 
