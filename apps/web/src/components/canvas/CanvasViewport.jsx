@@ -104,6 +104,8 @@ useEffect(() => {
         setActiveTool('pencil');
       } else if (e.key === 'e') {
         setActiveTool('eraser');
+      } else if (e.key === 'i') {
+        setActiveTool('eyedropper');
       }
     };
 
@@ -161,6 +163,19 @@ const paintAt = (clientX, clientY) => {
 
     if (gridX < 0 || gridY < 0 || gridX >= doc.meta.width || gridY >= doc.meta.height) return;
 
+    if (activeTool === 'eyedropper') {
+      const layer = doc.frames[0].layers[0];
+      const index = (gridY * doc.meta.width + gridX) * 4;
+      const sampled = [
+        layer.pixels[index],
+        layer.pixels[index + 1],
+        layer.pixels[index + 2],
+        layer.pixels[index + 3],
+      ];
+      if (sampled[3] > 0) setActiveColor(sampled); // only if not fully transparent
+      return; // don't fall through to drawing logic
+    }
+
     if (lastPaintedCell.current) {
       paintLine(lastPaintedCell.current.gridX, lastPaintedCell.current.gridY, gridX, gridY);
     } else {
@@ -171,6 +186,10 @@ const paintAt = (clientX, clientY) => {
     }
 
     lastPaintedCell.current = { gridX, gridY };
+  };
+  const rgbaToHex = ([r, g, b]) => {
+    const toHex = (n) => n.toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   };
   const hexToRgba = (hex) => {
     const r = parseInt(hex.slice(1, 3), 16);
@@ -218,8 +237,9 @@ const paintAt = (clientX, clientY) => {
 
  return (
     <div>
-      <input
+ <input
         type="color"
+        value={rgbaToHex(activeColor)}
         onChange={(e) => setActiveColor(hexToRgba(e.target.value))}
         style={{ marginBottom: '8px', display: 'block' }}
       />
