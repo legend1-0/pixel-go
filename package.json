@@ -1,0 +1,17 @@
+{
+  "name": "pixel-art-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "An open-source, browser-based pixel art editor for indie game developers and pixel artists.",
+  "main": "index.js",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

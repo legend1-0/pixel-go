@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+**/node_modules/
+
+# build output
+dist/
+build/
+
+# env files
+.env
+.env.local
+
+# OS/editor junk
+.DS_Store
+.vscode/
+*.log
+
+# IndexedDB/autosave dumps if you ever export debug data locally
+*.local

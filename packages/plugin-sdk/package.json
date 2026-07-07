@@ -1,0 +1,7 @@
+{
+  "name": "@pixel-art-studio/plugin-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "type": "module"
+}
