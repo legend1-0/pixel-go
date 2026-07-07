@@ -17,6 +17,8 @@ class DrawPixelCommand extends Command {
     super();
     this.layer = layer;
     this.index = (y * width + x) * 4;
+    this.x = x;
+    this.y = y;
     this.newColor = color;
     this.oldColor = null; // captured at execute() time
   }
