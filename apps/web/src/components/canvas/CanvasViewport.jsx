@@ -16,7 +16,7 @@ function CanvasViewport() {
   const isDragging = useRef(false);
   const isDrawing = useRef(false); // separate from panning-drag
   const lastMouse = useRef({ x: 0, y: 0 });
-
+const [activeTool, setActiveTool] = useState('pencil'); // 'pencil' | 'eraser'
   useEffect(() => {
     docRef.current = createDocument({ width: 32, height: 32 });
     historyRef.current = new HistoryManager();
@@ -83,31 +83,30 @@ function CanvasViewport() {
     draw();
   }, [draw]);
   // ctrl + Z to undo
-  useEffect(() => {
+useEffect(() => {
     const handleKeyDown = (e) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
-      if (isCtrlOrCmd && e.key === "z" && !e.shiftKey) {
+      if (isCtrlOrCmd && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
-        const command =
-          historyRef.current.undoStack[historyRef.current.undoStack.length - 1];
+        const command = historyRef.current.undoStack[historyRef.current.undoStack.length - 1];
         historyRef.current.undo(docRef.current);
         if (command) drawCell(command.x, command.y);
-      } else if (
-        isCtrlOrCmd &&
-        (e.key === "y" || (e.key === "z" && e.shiftKey))
-      ) {
+      } else if (isCtrlOrCmd && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
         e.preventDefault();
         historyRef.current.redo(docRef.current);
-        const command =
-          historyRef.current.undoStack[historyRef.current.undoStack.length - 1];
+        const command = historyRef.current.undoStack[historyRef.current.undoStack.length - 1];
         if (command) drawCell(command.x, command.y);
+      } else if (e.key === 'p') {
+        setActiveTool('pencil');
+      } else if (e.key === 'e') {
+        setActiveTool('eraser');
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [draw]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [draw, activeTool]);
 
   // convert a screen mouse position to grid cell coordinates
   const screenToGrid = (clientX, clientY) => {
@@ -119,7 +118,8 @@ function CanvasViewport() {
     const gridY = Math.floor((screenY - pan.y) / zoom);
     return { gridX, gridY };
   };
-  const paintLine = (x0, y0, x1, y1) => {
+  const getActiveColor = () => (activeTool === 'eraser' ? [0, 0, 0, 0] : [30, 30, 30, 255]);
+const paintLine = (x0, y0, x1, y1) => {
     // Bresenham's line algorithm — walks every grid cell between two points
     const dx = Math.abs(x1 - x0);
     const dy = Math.abs(y1 - y0);
@@ -134,13 +134,7 @@ function CanvasViewport() {
     while (true) {
       if (x >= 0 && y >= 0 && x < doc.meta.width && y < doc.meta.height) {
         const layer = doc.frames[0].layers[0];
-        const command = new DrawPixelCommand(
-          layer,
-          x,
-          y,
-          doc.meta.width,
-          [30, 30, 30, 255],
-        );
+        const command = new DrawPixelCommand(layer, x, y, doc.meta.width, getActiveColor());
         historyRef.current.execute(command, doc);
       }
 
@@ -159,41 +153,23 @@ function CanvasViewport() {
 
     draw();
   };
-  const paintAt = (clientX, clientY) => {
+const paintAt = (clientX, clientY) => {
     const doc = docRef.current;
     const { gridX, gridY } = screenToGrid(clientX, clientY);
 
-    if (
-      gridX < 0 ||
-      gridY < 0 ||
-      gridX >= doc.meta.width ||
-      gridY >= doc.meta.height
-    )
-      return;
+    if (gridX < 0 || gridY < 0 || gridX >= doc.meta.width || gridY >= doc.meta.height) return;
 
     if (lastPaintedCell.current) {
-      paintLine(
-        lastPaintedCell.current.gridX,
-        lastPaintedCell.current.gridY,
-        gridX,
-        gridY,
-      );
+      paintLine(lastPaintedCell.current.gridX, lastPaintedCell.current.gridY, gridX, gridY);
     } else {
       const layer = doc.frames[0].layers[0];
-      const command = new DrawPixelCommand(
-        layer,
-        gridX,
-        gridY,
-        doc.meta.width,
-        [30, 30, 30, 255],
-      );
+      const command = new DrawPixelCommand(layer, gridX, gridY, doc.meta.width, getActiveColor());
       historyRef.current.execute(command, doc);
       draw();
     }
 
     lastPaintedCell.current = { gridX, gridY };
   };
-
   const handleWheel = (e) => {
     e.preventDefault();
     const zoomSpeed = 0.001;
