@@ -3,6 +3,7 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import {
   createDocument,
   createLayer,
+  createFrame,
   DrawPixelCommand,
   BucketFillCommand,
   LineCommand,
@@ -10,6 +11,7 @@ import {
   RectangleCommand,
   HistoryManager,
 } from "@pixel-art-studio/engine";
+import { generateId } from "@pixel-art-studio/shared-utils";
 
 function CanvasViewport() {
   const canvasRef = useRef(null);
@@ -20,6 +22,8 @@ function CanvasViewport() {
   const [zoom, setZoom] = useState(10);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [layersState, setLayersState] = useState([]);
+  const [activeFrameIndex, setActiveFrameIndex] = useState(0);
+  const [framesState, setFramesState] = useState([]);
   const isDragging = useRef(false);
   const isDrawing = useRef(false); // separate from panning-drag
 
@@ -27,29 +31,55 @@ function CanvasViewport() {
   const lineStart = useRef(null); // { gridX, gridY } while dragging a line, else null
   const circleCenter = useRef(null);
   const rectStart = useRef(null);
-  const [activeTool, setActiveTool] = useState("pencil"); // 'pencil' | 'eraser'
+  const [activeTool, setActiveTool] = useState("pencil"); // 'pencil' | 'eraser' | ...
   const [activeColor, setActiveColor] = useState([30, 30, 30, 255]); // [r, g, b, a]
   const [paletteState, setPaletteState] = useState([]);
   const [activeLayerIndex, setActiveLayerIndex] = useState(0);
-  const getActiveLayer = () =>
-    docRef.current.frames[0].layers[activeLayerIndex];
+  const [onionSkinEnabled, setOnionSkinEnabled] = useState(false);
+  const getActiveFrame = () => docRef.current.frames[activeFrameIndex];
+  const getActiveLayer = () => getActiveFrame().layers[activeLayerIndex];
   const getActiveColor = () =>
     activeTool === "eraser" ? [0, 0, 0, 0] : activeColor;
 
-useEffect(() => {
+  useEffect(() => {
     docRef.current = createDocument({ width: 32, height: 32 });
     historyRef.current = new HistoryManager();
     setLayersState([...docRef.current.frames[0].layers]);
     setPaletteState([...docRef.current.palette]);
+    setFramesState([...docRef.current.frames]);
   }, []);
 
+  const drawOnionSkinFrame = (frameIndex, tint, opacityMultiplier) => {
+    const doc = docRef.current;
+    const frame = doc.frames[frameIndex];
+    if (!frame) return; // no previous/next frame exists — nothing to draw
+
+    const ctx = canvasRef.current.getContext("2d");
+
+    for (const layer of frame.layers) {
+      if (!layer.visible) continue;
+
+      for (let y = 0; y < doc.meta.height; y++) {
+        for (let x = 0; x < doc.meta.width; x++) {
+          const index = (y * doc.meta.width + x) * 4;
+          const a = layer.pixels[index + 3];
+          if (a > 0) {
+            const effectiveAlpha =
+              (a / 255) * layer.opacity * opacityMultiplier;
+            ctx.fillStyle = `rgba(${tint[0]}, ${tint[1]}, ${tint[2]}, ${effectiveAlpha})`;
+            ctx.fillRect(x, y, 1, 1);
+          }
+        }
+      }
+    }
+  };
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     const doc = docRef.current;
     if (!doc) return;
-
-    const layers = doc.frames[0].layers;
+    console.log("layers being drawn:", getActiveFrame().layers);
+    const layers = getActiveFrame().layers;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.translate(pan.x, pan.y);
@@ -62,6 +92,12 @@ useEffect(() => {
         ctx.fillStyle = isEven ? "#e0e0e0" : "#f5f5f5";
         ctx.fillRect(x, y, 1, 1);
       }
+    }
+
+    // onion skin ghosts — previous frame in blue, next frame in orange
+    if (onionSkinEnabled) {
+      drawOnionSkinFrame(activeFrameIndex - 1, [50, 100, 255], 0.35);
+      drawOnionSkinFrame(activeFrameIndex + 1, [255, 120, 50], 0.35);
     }
 
     // composite every visible layer, bottom to top
@@ -85,13 +121,13 @@ useEffect(() => {
     }
 
     ctx.restore();
-  }, [zoom, pan]);
+  }, [zoom, pan, activeFrameIndex, onionSkinEnabled]);
 
   const drawCell = (x, y) => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     const doc = docRef.current;
-    const layers = doc.frames[0].layers;
+    const layers = getActiveFrame().layers; // FIXED: was doc.frames[0].layers
 
     ctx.save();
     ctx.translate(pan.x, pan.y);
@@ -122,7 +158,7 @@ useEffect(() => {
     draw();
   }, [draw]);
 
-  // ctrl + Z to undo
+  // keyboard shortcuts: undo/redo + tool switching
   useEffect(() => {
     const handleKeyDown = (e) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
@@ -170,7 +206,48 @@ useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [draw, activeTool]);
-  // shape drawing
+
+  const switchToFrame = (index) => {
+    const doc = docRef.current;
+    setActiveFrameIndex(index);
+    setLayersState([...doc.frames[index].layers]);
+    setActiveLayerIndex(0);
+  };
+  const addFrame = () => {
+    const doc = docRef.current;
+    const newFrame = createFrame(doc.meta.width, doc.meta.height); // FIXED: no id arg
+    doc.frames.push(newFrame);
+    setFramesState([...doc.frames]);
+    setActiveFrameIndex(doc.frames.length - 1);
+    setLayersState([...newFrame.layers]);
+    setActiveLayerIndex(0);
+  };
+
+  const duplicateFrame = (index) => {
+    const doc = docRef.current;
+    const sourceFrame = doc.frames[index];
+
+    // deep-copy every layer's pixel data, so edits to the new frame don't affect the original
+    const duplicatedLayers = sourceFrame.layers.map((layer) => ({
+      ...layer,
+      id: generateId("layer"),
+      pixels: new Uint8ClampedArray(layer.pixels),
+    }));
+
+    const newFrame = {
+      id: generateId("frame"),
+      duration: sourceFrame.duration,
+      layers: duplicatedLayers,
+    };
+
+    doc.frames.splice(index + 1, 0, newFrame); // insert right after the source frame
+    setFramesState([...doc.frames]);
+    setActiveFrameIndex(index + 1);
+    setLayersState([...newFrame.layers]);
+    setActiveLayerIndex(0);
+  };
+
+  // shape previews
   const drawCirclePreview = (centerX, centerY, currentX, currentY) => {
     draw(); // clear old preview by redrawing committed state
 
@@ -187,7 +264,6 @@ useEffect(() => {
     const [r, g, b, a] = getActiveColor();
     ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
 
-    // reuse the same midpoint circle walk, just for preview, no Command involved
     let x = radius,
       y = 0,
       err = 0;
@@ -213,8 +289,9 @@ useEffect(() => {
 
     ctx.restore();
   };
+
   const drawRectanglePreview = (x0, y0, x1, y1) => {
-    draw(); // clear old preview
+    draw();
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -241,8 +318,9 @@ useEffect(() => {
 
     ctx.restore();
   };
+
   const drawLinePreview = (x0, y0, x1, y1) => {
-    draw(); // redraw the real committed state first, clearing any old preview
+    draw();
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -253,7 +331,6 @@ useEffect(() => {
     const [r, g, b, a] = getActiveColor();
     ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
 
-    // reuse the same Bresenham walk, just for visual preview, no Command involved
     const dx = Math.abs(x1 - x0);
     const dy = Math.abs(y1 - y0);
     const sx = x1 >= x0 ? 1 : -1;
@@ -281,57 +358,62 @@ useEffect(() => {
 
   const addLayer = () => {
     const doc = docRef.current;
+    const frame = getActiveFrame();
     const newLayer = createLayer(
-      `layer-${Date.now()}`,
+      `Layer ${frame.layers.length + 1}`, // FIXED: name first, matches real signature
       doc.meta.width,
       doc.meta.height,
-      `Layer ${doc.frames[0].layers.length + 1}`,
     );
-    doc.frames[0].layers.push(newLayer);
-    setActiveLayerIndex(doc.frames[0].layers.length - 1);
-    setLayersState([...doc.frames[0].layers]); // new array reference triggers re-render
+    frame.layers.push(newLayer);
+    setActiveLayerIndex(frame.layers.length - 1);
+    setLayersState([...frame.layers]);
     draw();
   };
-  const deleteLayer = (index) => {
-    const doc = docRef.current;
 
-    if (doc.frames[0].layers.length <= 1) {
+  const deleteLayer = (index) => {
+    const frame = getActiveFrame();
+
+    if (frame.layers.length <= 1) {
       alert("You can't delete the last remaining layer.");
       return;
     }
 
-    doc.frames[0].layers.splice(index, 1);
+    frame.layers.splice(index, 1);
 
-    // if the deleted layer was active, or came before the active one,
-    // adjust activeLayerIndex so it still points at a valid layer
     setActiveLayerIndex((prev) => {
       if (index === prev) return Math.max(0, prev - 1);
       if (index < prev) return prev - 1;
       return prev;
     });
 
-    setLayersState([...doc.frames[0].layers]);
+    setLayersState([...frame.layers]);
     draw();
   };
+
   const toggleLayerVisibility = (index) => {
-    const doc = docRef.current;
-    doc.frames[0].layers[index].visible = !doc.frames[0].layers[index].visible;
-    setLayersState([...doc.frames[0].layers]);
+    const frame = getActiveFrame(); // FIXED: was reading/writing frames[0]
+    frame.layers[index].visible = !frame.layers[index].visible;
+    setLayersState([...frame.layers]);
     draw();
   };
 
   const setLayerOpacity = (index, opacity) => {
-    const doc = docRef.current;
-    doc.frames[0].layers[index].opacity = opacity;
-    setLayersState([...doc.frames[0].layers]);
+    const frame = getActiveFrame(); // FIXED: was reading/writing frames[0]
+    frame.layers[index].opacity = opacity;
+    setLayersState([...frame.layers]);
     draw();
   };
-const saveColorToPalette = () => {
+
+  const saveColorToPalette = () => {
     const doc = docRef.current;
     const alreadyExists = doc.palette.some(
-      (c) => c[0] === activeColor[0] && c[1] === activeColor[1] && c[2] === activeColor[2] && c[3] === activeColor[3],
+      (c) =>
+        c[0] === activeColor[0] &&
+        c[1] === activeColor[1] &&
+        c[2] === activeColor[2] &&
+        c[3] === activeColor[3],
     );
-    if (alreadyExists) return; // avoid duplicate swatches
+    if (alreadyExists) return;
 
     doc.palette.push(activeColor);
     setPaletteState([...doc.palette]);
@@ -342,7 +424,7 @@ const saveColorToPalette = () => {
     doc.palette.splice(index, 1);
     setPaletteState([...doc.palette]);
   };
-  // convert a screen mouse position to grid cell coordinates
+
   const screenToGrid = (clientX, clientY) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
@@ -352,8 +434,8 @@ const saveColorToPalette = () => {
     const gridY = Math.floor((screenY - pan.y) / zoom);
     return { gridX, gridY };
   };
+
   const paintLine = (x0, y0, x1, y1) => {
-    // Bresenham's line algorithm — walks every grid cell between two points
     const dx = Math.abs(x1 - x0);
     const dy = Math.abs(y1 - y0);
     const sx = x1 >= x0 ? 1 : -1;
@@ -392,6 +474,7 @@ const saveColorToPalette = () => {
 
     draw();
   };
+
   const paintAt = (clientX, clientY) => {
     const doc = docRef.current;
     const { gridX, gridY } = screenToGrid(clientX, clientY);
@@ -413,8 +496,8 @@ const saveColorToPalette = () => {
         layer.pixels[index + 2],
         layer.pixels[index + 3],
       ];
-      if (sampled[3] > 0) setActiveColor(sampled); // only if not fully transparent
-      return; // don't fall through to drawing logic
+      if (sampled[3] > 0) setActiveColor(sampled);
+      return;
     }
     if (activeTool === "bucket") {
       const layer = getActiveLayer();
@@ -427,7 +510,7 @@ const saveColorToPalette = () => {
         getActiveColor(),
       );
       historyRef.current.execute(command, doc);
-      draw(); // full redraw — bucket fill can touch many cells, not just one
+      draw();
       lastPaintedCell.current = { gridX, gridY };
       return;
     }
@@ -453,6 +536,7 @@ const saveColorToPalette = () => {
 
     lastPaintedCell.current = { gridX, gridY };
   };
+
   const rgbaToHex = ([r, g, b]) => {
     const toHex = (n) => n.toString(16).padStart(2, "0");
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
@@ -463,6 +547,7 @@ const saveColorToPalette = () => {
     const b = parseInt(hex.slice(5, 7), 16);
     return [r, g, b, 255];
   };
+
   const handleWheel = (e) => {
     e.preventDefault();
     const zoomSpeed = 0.001;
@@ -568,7 +653,6 @@ const saveColorToPalette = () => {
     isDrawing.current = false;
     lastPaintedCell.current = null;
 
-    //circle
     if (activeTool === "circle" && circleCenter.current) {
       const doc = docRef.current;
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
@@ -592,7 +676,6 @@ const saveColorToPalette = () => {
       draw();
       circleCenter.current = null;
     }
-    //rectangle
     if (activeTool === "rectangle" && rectStart.current) {
       const doc = docRef.current;
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
@@ -614,7 +697,7 @@ const saveColorToPalette = () => {
   };
 
   return (
-    <div style={{ display: "flex", gap: "16px" }}>
+    <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
       <div>
         <input
           type="color"
@@ -659,7 +742,7 @@ const saveColorToPalette = () => {
               {layer.name}
               <button
                 onClick={(e) => {
-                  e.stopPropagation(); // prevent the row's onClick (setActiveLayerIndex) from also firing
+                  e.stopPropagation();
                   deleteLayer(index);
                 }}
                 style={{ marginLeft: "8px" }}
@@ -667,7 +750,6 @@ const saveColorToPalette = () => {
                 ✕
               </button>
             </div>
-            <div>{layer.name}</div>
             <label>
               <input
                 type="checkbox"
@@ -693,9 +775,17 @@ const saveColorToPalette = () => {
           </div>
         ))}
       </div>
-    <div style={{ width: '200px' }}>
+
+      <div style={{ width: "200px" }}>
         <button onClick={saveColorToPalette}>+ Save Current Color</button>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "4px",
+            marginTop: "8px",
+          }}
+        >
           {paletteState.map((color, index) => (
             <div
               key={index}
@@ -703,13 +793,59 @@ const saveColorToPalette = () => {
               onDoubleClick={() => removeColorFromPalette(index)}
               title="Click to use, double-click to remove"
               style={{
-                width: '24px',
-                height: '24px',
+                width: "24px",
+                height: "24px",
                 backgroundColor: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] / 255})`,
-                border: '1px solid #999',
-                cursor: 'pointer',
+                border: "1px solid #999",
+                cursor: "pointer",
               }}
             />
+          ))}
+        </div>
+      </div>
+
+      <div style={{ width: "250px" }}>
+        <button onClick={addFrame}>+ Add Frame</button>
+        <label style={{ display: "block", marginTop: "6px" }}>
+          <input
+            type="checkbox"
+            checked={onionSkinEnabled}
+            onChange={(e) => setOnionSkinEnabled(e.target.checked)}
+          />
+          Onion Skin
+        </label>{" "}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "6px",
+            marginTop: "8px",
+          }}
+        >
+          {framesState.map((frame, index) => (
+            <div
+              key={frame.id}
+              onClick={() => switchToFrame(index)}
+              style={{
+                padding: "4px",
+                border:
+                  index === activeFrameIndex
+                    ? "2px solid blue"
+                    : "1px solid #ccc",
+                cursor: "pointer",
+                textAlign: "center",
+              }}
+            >
+              <div>Frame {index + 1}</div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  duplicateFrame(index);
+                }}
+              >
+                Duplicate
+              </button>
+            </div>
           ))}
         </div>
       </div>
