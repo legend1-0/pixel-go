@@ -222,6 +222,27 @@ function CanvasViewport() {
     setLayersState([...newFrame.layers]);
     setActiveLayerIndex(0);
   };
+  const deleteFrame = (index) => {
+    const doc = docRef.current;
+
+    if (doc.frames.length <= 1) {
+      alert("You can't delete the last remaining frame.");
+      return;
+    }
+
+    doc.frames.splice(index, 1);
+
+    setActiveFrameIndex((prev) => {
+      if (index === prev) return Math.max(0, prev - 1);
+      if (index < prev) return prev - 1;
+      return prev;
+    });
+
+    setFramesState([...doc.frames]);
+    setLayersState([...doc.frames[Math.max(0, index === activeFrameIndex ? index - 1 : activeFrameIndex > index ? activeFrameIndex - 1 : activeFrameIndex)].layers]);
+    setActiveLayerIndex(0);
+    draw();
+  };
 
   const duplicateFrame = (index) => {
     const doc = docRef.current;
@@ -844,6 +865,14 @@ function CanvasViewport() {
                 }}
               >
                 Duplicate
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteFrame(index);
+                }}
+              >
+                Delete
               </button>
             </div>
           ))}
