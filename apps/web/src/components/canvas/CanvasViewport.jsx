@@ -1,11 +1,6 @@
 // apps/web/src/components/canvas/CanvasViewport.jsx
 import { useRef, useEffect, useState, useCallback } from "react";
-import {
-  createDocument,
-  DrawPixelCommand,
-  HistoryManager,
-} from "@pixel-art-studio/engine";
-
+import { createDocument, DrawPixelCommand, BucketFillCommand, LineCommand, HistoryManager } from '@pixel-art-studio/engine';
 function CanvasViewport() {
   const canvasRef = useRef(null);
   const docRef = useRef(null);
@@ -16,6 +11,7 @@ function CanvasViewport() {
   const isDragging = useRef(false);
   const isDrawing = useRef(false); // separate from panning-drag
   const lastMouse = useRef({ x: 0, y: 0 });
+  const lineStart = useRef(null); // { gridX, gridY } while dragging a line, else null
 const [activeTool, setActiveTool] = useState('pencil'); // 'pencil' | 'eraser'
 const [activeColor, setActiveColor] = useState([30, 30, 30, 255]); // [r, g, b, a] 
 const getActiveColor = () => (activeTool === 'eraser' ? [0, 0, 0, 0] : activeColor);
@@ -87,32 +83,72 @@ useEffect(() => {
   }, [draw]);
   // ctrl + Z to undo
 useEffect(() => {
-    const handleKeyDown = (e) => {
+const handleKeyDown = (e) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
       if (isCtrlOrCmd && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         const command = historyRef.current.undoStack[historyRef.current.undoStack.length - 1];
         historyRef.current.undo(docRef.current);
-        if (command) drawCell(command.x, command.y);
+        if (command && command.x !== undefined) {
+          drawCell(command.x, command.y);
+        } else {
+          draw();
+        }
       } else if (isCtrlOrCmd && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
         e.preventDefault();
         historyRef.current.redo(docRef.current);
         const command = historyRef.current.undoStack[historyRef.current.undoStack.length - 1];
-        if (command) drawCell(command.x, command.y);
+        if (command && command.x !== undefined) {
+          drawCell(command.x, command.y);
+        } else {
+          draw();
+        }
       } else if (e.key === 'p') {
         setActiveTool('pencil');
       } else if (e.key === 'e') {
         setActiveTool('eraser');
       } else if (e.key === 'i') {
         setActiveTool('eyedropper');
+      } else if (e.key === 'b') {
+        setActiveTool('bucket');
+      } else if (e.key === 'l') {
+        setActiveTool('line');
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [draw, activeTool]);
+const drawLinePreview = (x0, y0, x1, y1) => {
+    draw(); // redraw the real committed state first, clearing any old preview
 
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.translate(pan.x, pan.y);
+    ctx.scale(zoom, zoom);
+
+    const [r, g, b, a] = getActiveColor();
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+
+    // reuse the same Bresenham walk, just for visual preview, no Command involved
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = x1 >= x0 ? 1 : -1;
+    const sy = y1 >= y0 ? 1 : -1;
+    let x = x0, y = y0, err = dx - dy;
+
+    while (true) {
+      ctx.fillRect(x, y, 1, 1);
+      if (x === x1 && y === y1) break;
+      const e2 = 2 * err;
+      if (e2 > -dy) { err -= dy; x += sx; }
+      if (e2 < dx) { err += dx; y += sy; }
+    }
+
+    ctx.restore();
+  };
   // convert a screen mouse position to grid cell coordinates
   const screenToGrid = (clientX, clientY) => {
     const canvas = canvasRef.current;
@@ -175,7 +211,14 @@ const paintAt = (clientX, clientY) => {
       if (sampled[3] > 0) setActiveColor(sampled); // only if not fully transparent
       return; // don't fall through to drawing logic
     }
-
+    if (activeTool === 'bucket') {
+          const layer = doc.frames[0].layers[0];
+          const command = new BucketFillCommand(layer, gridX, gridY, doc.meta.width, doc.meta.height, getActiveColor());
+          historyRef.current.execute(command, doc);
+          draw(); // full redraw — bucket fill can touch many cells, not just one
+          lastPaintedCell.current = { gridX, gridY };
+          return;
+     }
     if (lastPaintedCell.current) {
       paintLine(lastPaintedCell.current.gridX, lastPaintedCell.current.gridY, gridX, gridY);
     } else {
@@ -207,29 +250,63 @@ const paintAt = (clientX, clientY) => {
     setZoom(newZoom);
   };
 
-  const handleMouseDown = (e) => {
+const handleMouseDown = (e) => {
     if (e.shiftKey) {
-      // hold Shift to pan, otherwise draw — simple way to separate the two for now
       isDragging.current = true;
       lastMouse.current = { x: e.clientX, y: e.clientY };
-    } else {
-      isDrawing.current = true;
-      paintAt(e.clientX, e.clientY);
+      return;
     }
+
+    if (activeTool === 'line') {
+      const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
+      lineStart.current = { gridX, gridY };
+      return;
+    }
+
+    isDrawing.current = true;
+    paintAt(e.clientX, e.clientY);
   };
 
-  const handleMouseMove = (e) => {
+const handleMouseMove = (e) => {
     if (isDragging.current) {
       const dx = e.clientX - lastMouse.current.x;
       const dy = e.clientY - lastMouse.current.y;
       lastMouse.current = { x: e.clientX, y: e.clientY };
       setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
-    } else if (isDrawing.current) {
+      return;
+    }
+
+    if (activeTool === 'line' && lineStart.current) {
+      const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
+      drawLinePreview(lineStart.current.gridX, lineStart.current.gridY, gridX, gridY);
+      return;
+    }
+
+    if (isDrawing.current) {
       paintAt(e.clientX, e.clientY);
     }
   };
 
-  const handleMouseUp = () => {
+const handleMouseUp = (e) => {
+    if (activeTool === 'line' && lineStart.current) {
+      const doc = docRef.current;
+      const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
+      const layer = doc.frames[0].layers[0];
+      const command = new LineCommand(
+        layer,
+        lineStart.current.gridX,
+        lineStart.current.gridY,
+        gridX,
+        gridY,
+        doc.meta.width,
+        doc.meta.height,
+        getActiveColor(),
+      );
+      historyRef.current.execute(command, doc);
+      draw();
+      lineStart.current = null;
+    }
+
     isDragging.current = false;
     isDrawing.current = false;
     lastPaintedCell.current = null;
