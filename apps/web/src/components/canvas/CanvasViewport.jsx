@@ -1,31 +1,45 @@
 // apps/web/src/components/canvas/CanvasViewport.jsx
 import { useRef, useEffect, useState, useCallback } from "react";
-import { createDocument, DrawPixelCommand, BucketFillCommand, LineCommand, CircleCommand, RectangleCommand, HistoryManager } from '@pixel-art-studio/engine';
+import {
+  createDocument,
+  createLayer,
+  DrawPixelCommand,
+  BucketFillCommand,
+  LineCommand,
+  CircleCommand,
+  RectangleCommand,
+  HistoryManager,
+} from "@pixel-art-studio/engine";
 
 function CanvasViewport() {
   const canvasRef = useRef(null);
   const docRef = useRef(null);
   const historyRef = useRef(null); // holds HistoryManager, no re-renders needed
   const lastPaintedCell = useRef(null); // { gridX, gridY } or null
-  
+
   const [zoom, setZoom] = useState(10);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  
+  const [layersState, setLayersState] = useState([]);
   const isDragging = useRef(false);
   const isDrawing = useRef(false); // separate from panning-drag
- 
+
   const lastMouse = useRef({ x: 0, y: 0 });
   const lineStart = useRef(null); // { gridX, gridY } while dragging a line, else null
   const circleCenter = useRef(null);
   const rectStart = useRef(null);
   const [activeTool, setActiveTool] = useState("pencil"); // 'pencil' | 'eraser'
   const [activeColor, setActiveColor] = useState([30, 30, 30, 255]); // [r, g, b, a]
+
+  const [activeLayerIndex, setActiveLayerIndex] = useState(0);
+  const getActiveLayer = () =>
+    docRef.current.frames[0].layers[activeLayerIndex];
   const getActiveColor = () =>
     activeTool === "eraser" ? [0, 0, 0, 0] : activeColor;
 
   useEffect(() => {
     docRef.current = createDocument({ width: 32, height: 32 });
     historyRef.current = new HistoryManager();
+    setLayersState([...docRef.current.frames[0].layers]);
   }, []);
 
   const draw = useCallback(() => {
@@ -34,38 +48,49 @@ function CanvasViewport() {
     const doc = docRef.current;
     if (!doc) return;
 
-    const layer = doc.frames[0].layers[0];
+    const layers = doc.frames[0].layers;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.translate(pan.x, pan.y);
     ctx.scale(zoom, zoom);
 
+    // checkerboard background, drawn once
     for (let y = 0; y < doc.meta.height; y++) {
       for (let x = 0; x < doc.meta.width; x++) {
         const isEven = (x + y) % 2 === 0;
         ctx.fillStyle = isEven ? "#e0e0e0" : "#f5f5f5";
         ctx.fillRect(x, y, 1, 1);
+      }
+    }
 
-        const index = (y * doc.meta.width + x) * 4;
-        const a = layer.pixels[index + 3];
-        if (a > 0) {
-          const r = layer.pixels[index];
-          const g = layer.pixels[index + 1];
-          const b = layer.pixels[index + 2];
-          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
-          ctx.fillRect(x, y, 1, 1);
+    // composite every visible layer, bottom to top
+    for (const layer of layers) {
+      if (!layer.visible) continue;
+
+      for (let y = 0; y < doc.meta.height; y++) {
+        for (let x = 0; x < doc.meta.width; x++) {
+          const index = (y * doc.meta.width + x) * 4;
+          const a = layer.pixels[index + 3];
+          if (a > 0) {
+            const r = layer.pixels[index];
+            const g = layer.pixels[index + 1];
+            const b = layer.pixels[index + 2];
+            const effectiveAlpha = (a / 255) * layer.opacity;
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${effectiveAlpha})`;
+            ctx.fillRect(x, y, 1, 1);
+          }
         }
       }
     }
+
     ctx.restore();
   }, [zoom, pan]);
-
 
   const drawCell = (x, y) => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     const doc = docRef.current;
-    const layer = doc.frames[0].layers[0];
+    const layers = doc.frames[0].layers;
 
     ctx.save();
     ctx.translate(pan.x, pan.y);
@@ -75,24 +100,26 @@ function CanvasViewport() {
     ctx.fillStyle = isEven ? "#e0e0e0" : "#f5f5f5";
     ctx.fillRect(x, y, 1, 1);
 
-    const index = (y * doc.meta.width + x) * 4;
-    const a = layer.pixels[index + 3];
-    if (a > 0) {
-      const r = layer.pixels[index];
-      const g = layer.pixels[index + 1];
-      const b = layer.pixels[index + 2];
-      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
-      ctx.fillRect(x, y, 1, 1);
+    for (const layer of layers) {
+      if (!layer.visible) continue;
+      const index = (y * doc.meta.width + x) * 4;
+      const a = layer.pixels[index + 3];
+      if (a > 0) {
+        const r = layer.pixels[index];
+        const g = layer.pixels[index + 1];
+        const b = layer.pixels[index + 2];
+        const effectiveAlpha = (a / 255) * layer.opacity;
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${effectiveAlpha})`;
+        ctx.fillRect(x, y, 1, 1);
+      }
     }
 
     ctx.restore();
   };
 
-
   useEffect(() => {
     draw();
   }, [draw]);
-
 
   // ctrl + Z to undo
   useEffect(() => {
@@ -132,18 +159,17 @@ function CanvasViewport() {
         setActiveTool("bucket");
       } else if (e.key === "l") {
         setActiveTool("line");
-      } else if (e.key === 'c') {
-        setActiveTool('circle');
-      } else if (e.key === 'r') {
-        setActiveTool('rectangle');
+      } else if (e.key === "c") {
+        setActiveTool("circle");
+      } else if (e.key === "r") {
+        setActiveTool("rectangle");
       }
     };
-
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [draw, activeTool]);
-    // shape drawing
+  // shape drawing
   const drawCirclePreview = (centerX, centerY, currentX, currentY) => {
     draw(); // clear old preview by redrawing committed state
 
@@ -152,7 +178,7 @@ function CanvasViewport() {
     );
 
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     ctx.save();
     ctx.translate(pan.x, pan.y);
     ctx.scale(zoom, zoom);
@@ -161,7 +187,9 @@ function CanvasViewport() {
     ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
 
     // reuse the same midpoint circle walk, just for preview, no Command involved
-    let x = radius, y = 0, err = 0;
+    let x = radius,
+      y = 0,
+      err = 0;
     const plot = (px, py) => ctx.fillRect(px, py, 1, 1);
 
     while (x >= y) {
@@ -176,7 +204,10 @@ function CanvasViewport() {
 
       y += 1;
       if (err <= 0) err += 2 * y + 1;
-      if (err > 0) { x -= 1; err -= 2 * x + 1; }
+      if (err > 0) {
+        x -= 1;
+        err -= 2 * x + 1;
+      }
     }
 
     ctx.restore();
@@ -185,7 +216,7 @@ function CanvasViewport() {
     draw(); // clear old preview
 
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     ctx.save();
     ctx.translate(pan.x, pan.y);
     ctx.scale(zoom, zoom);
@@ -247,7 +278,53 @@ function CanvasViewport() {
     ctx.restore();
   };
 
+  const addLayer = () => {
+    const doc = docRef.current;
+    const newLayer = createLayer(
+      `layer-${Date.now()}`,
+      doc.meta.width,
+      doc.meta.height,
+      `Layer ${doc.frames[0].layers.length + 1}`,
+    );
+    doc.frames[0].layers.push(newLayer);
+    setActiveLayerIndex(doc.frames[0].layers.length - 1);
+    setLayersState([...doc.frames[0].layers]); // new array reference triggers re-render
+    draw();
+  };
+  const deleteLayer = (index) => {
+    const doc = docRef.current;
 
+    if (doc.frames[0].layers.length <= 1) {
+      alert("You can't delete the last remaining layer.");
+      return;
+    }
+
+    doc.frames[0].layers.splice(index, 1);
+
+    // if the deleted layer was active, or came before the active one,
+    // adjust activeLayerIndex so it still points at a valid layer
+    setActiveLayerIndex((prev) => {
+      if (index === prev) return Math.max(0, prev - 1);
+      if (index < prev) return prev - 1;
+      return prev;
+    });
+
+    setLayersState([...doc.frames[0].layers]);
+    draw();
+  };
+  const toggleLayerVisibility = (index) => {
+    const doc = docRef.current;
+    doc.frames[0].layers[index].visible = !doc.frames[0].layers[index].visible;
+    setLayersState([...doc.frames[0].layers]);
+    draw();
+  };
+
+  const setLayerOpacity = (index, opacity) => {
+    const doc = docRef.current;
+    doc.frames[0].layers[index].opacity = opacity;
+    setLayersState([...doc.frames[0].layers]);
+    draw();
+  };
 
   // convert a screen mouse position to grid cell coordinates
   const screenToGrid = (clientX, clientY) => {
@@ -273,7 +350,7 @@ function CanvasViewport() {
 
     while (true) {
       if (x >= 0 && y >= 0 && x < doc.meta.width && y < doc.meta.height) {
-        const layer = doc.frames[0].layers[0];
+        const layer = getActiveLayer();
         const command = new DrawPixelCommand(
           layer,
           x,
@@ -312,7 +389,7 @@ function CanvasViewport() {
       return;
 
     if (activeTool === "eyedropper") {
-      const layer = doc.frames[0].layers[0];
+      const layer = getActiveLayer();
       const index = (gridY * doc.meta.width + gridX) * 4;
       const sampled = [
         layer.pixels[index],
@@ -324,7 +401,7 @@ function CanvasViewport() {
       return; // don't fall through to drawing logic
     }
     if (activeTool === "bucket") {
-      const layer = doc.frames[0].layers[0];
+      const layer = getActiveLayer();
       const command = new BucketFillCommand(
         layer,
         gridX,
@@ -346,7 +423,7 @@ function CanvasViewport() {
         gridY,
       );
     } else {
-      const layer = doc.frames[0].layers[0];
+      const layer = getActiveLayer();
       const command = new DrawPixelCommand(
         layer,
         gridX,
@@ -386,7 +463,7 @@ function CanvasViewport() {
       lastMouse.current = { x: e.clientX, y: e.clientY };
       return;
     }
-    if (activeTool === 'circle') {
+    if (activeTool === "circle") {
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
       circleCenter.current = { gridX, gridY };
       return;
@@ -396,7 +473,7 @@ function CanvasViewport() {
       lineStart.current = { gridX, gridY };
       return;
     }
-    if (activeTool === 'rectangle') {
+    if (activeTool === "rectangle") {
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
       rectStart.current = { gridX, gridY };
       return;
@@ -414,14 +491,24 @@ function CanvasViewport() {
       setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
       return;
     }
-    if (activeTool === 'circle' && circleCenter.current) {
+    if (activeTool === "circle" && circleCenter.current) {
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
-      drawCirclePreview(circleCenter.current.gridX, circleCenter.current.gridY, gridX, gridY);
+      drawCirclePreview(
+        circleCenter.current.gridX,
+        circleCenter.current.gridY,
+        gridX,
+        gridY,
+      );
       return;
     }
-    if (activeTool === 'rectangle' && rectStart.current) {
+    if (activeTool === "rectangle" && rectStart.current) {
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
-      drawRectanglePreview(rectStart.current.gridX, rectStart.current.gridY, gridX, gridY);
+      drawRectanglePreview(
+        rectStart.current.gridX,
+        rectStart.current.gridY,
+        gridX,
+        gridY,
+      );
       return;
     }
 
@@ -445,7 +532,7 @@ function CanvasViewport() {
     if (activeTool === "line" && lineStart.current) {
       const doc = docRef.current;
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
-      const layer = doc.frames[0].layers[0];
+      const layer = getActiveLayer();
       const command = new LineCommand(
         layer,
         lineStart.current.gridX,
@@ -466,15 +553,16 @@ function CanvasViewport() {
     lastPaintedCell.current = null;
 
     //circle
-    if (activeTool === 'circle' && circleCenter.current) {
+    if (activeTool === "circle" && circleCenter.current) {
       const doc = docRef.current;
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
       const radius = Math.round(
         Math.sqrt(
-          (gridX - circleCenter.current.gridX) ** 2 + (gridY - circleCenter.current.gridY) ** 2,
+          (gridX - circleCenter.current.gridX) ** 2 +
+            (gridY - circleCenter.current.gridY) ** 2,
         ),
       );
-      const layer = doc.frames[0].layers[0];
+      const layer = getActiveLayer();
       const command = new CircleCommand(
         layer,
         circleCenter.current.gridX,
@@ -489,10 +577,10 @@ function CanvasViewport() {
       circleCenter.current = null;
     }
     //rectangle
-    if (activeTool === 'rectangle' && rectStart.current) {
+    if (activeTool === "rectangle" && rectStart.current) {
       const doc = docRef.current;
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
-      const layer = doc.frames[0].layers[0];
+      const layer = getActiveLayer();
       const command = new RectangleCommand(
         layer,
         rectStart.current.gridX,
@@ -510,28 +598,85 @@ function CanvasViewport() {
   };
 
   return (
-    <div>
-      <input
-        type="color"
-        value={rgbaToHex(activeColor)}
-        onChange={(e) => setActiveColor(hexToRgba(e.target.value))}
-        style={{ marginBottom: "8px", display: "block" }}
-      />
-      <canvas
-        ref={canvasRef}
-        width={500}
-        height={500}
-        style={{
-          border: "1px solid #333",
-          imageRendering: "pixelated",
-          cursor: "crosshair",
-        }}
-        onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-      />
+    <div style={{ display: "flex", gap: "16px" }}>
+      <div>
+        <input
+          type="color"
+          value={rgbaToHex(activeColor)}
+          onChange={(e) => setActiveColor(hexToRgba(e.target.value))}
+          style={{ marginBottom: "8px", display: "block" }}
+        />
+        <canvas
+          ref={canvasRef}
+          width={500}
+          height={500}
+          style={{
+            border: "1px solid #333",
+            imageRendering: "pixelated",
+            cursor: "crosshair",
+          }}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        />
+      </div>
+
+      <div style={{ width: "200px" }}>
+        <button onClick={addLayer}>+ Add Layer</button>
+        {layersState.map((layer, index) => (
+          <div
+            key={layer.id}
+            onClick={() => setActiveLayerIndex(index)}
+            style={{
+              padding: "6px",
+              marginTop: "6px",
+              border:
+                index === activeLayerIndex
+                  ? "2px solid blue"
+                  : "1px solid #ccc",
+              cursor: "pointer",
+            }}
+          >
+            <div>
+              {layer.name}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // prevent the row's onClick (setActiveLayerIndex) from also firing
+                  deleteLayer(index);
+                }}
+                style={{ marginLeft: "8px" }}
+              >
+                ✕
+              </button>
+            </div>
+            <div>{layer.name}</div>
+            <label>
+              <input
+                type="checkbox"
+                checked={layer.visible}
+                onChange={() => toggleLayerVisibility(index)}
+              />
+              Visible
+            </label>
+            <br />
+            <label>
+              Opacity:
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={layer.opacity}
+                onChange={(e) =>
+                  setLayerOpacity(index, parseFloat(e.target.value))
+                }
+              />
+            </label>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
