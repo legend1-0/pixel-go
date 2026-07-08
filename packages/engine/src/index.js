@@ -4,3 +4,4 @@ export { Command } from './commands/Command.js';
 export { HistoryManager } from './commands/HistoryManager.js';
 export { BucketFillCommand } from './commands/BucketFillCommand.js';
 export { LineCommand } from './commands/LineCommand.js';
+export { CircleCommand } from './commands/CircleCommand.js';

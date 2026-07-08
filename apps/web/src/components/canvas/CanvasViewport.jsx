@@ -1,6 +1,13 @@
 // apps/web/src/components/canvas/CanvasViewport.jsx
 import { useRef, useEffect, useState, useCallback } from "react";
-import { createDocument, DrawPixelCommand, BucketFillCommand, LineCommand, HistoryManager } from '@pixel-art-studio/engine';
+import {
+  createDocument,
+  DrawPixelCommand,
+  BucketFillCommand,
+  LineCommand,
+  HistoryManager,
+  CircleCommand
+} from "@pixel-art-studio/engine";
 function CanvasViewport() {
   const canvasRef = useRef(null);
   const docRef = useRef(null);
@@ -12,11 +19,13 @@ function CanvasViewport() {
   const isDrawing = useRef(false); // separate from panning-drag
   const lastMouse = useRef({ x: 0, y: 0 });
   const lineStart = useRef(null); // { gridX, gridY } while dragging a line, else null
-const [activeTool, setActiveTool] = useState('pencil'); // 'pencil' | 'eraser'
-const [activeColor, setActiveColor] = useState([30, 30, 30, 255]); // [r, g, b, a] 
-const getActiveColor = () => (activeTool === 'eraser' ? [0, 0, 0, 0] : activeColor);
+  const circleCenter = useRef(null);
+  const [activeTool, setActiveTool] = useState("pencil"); // 'pencil' | 'eraser'
+  const [activeColor, setActiveColor] = useState([30, 30, 30, 255]); // [r, g, b, a]
+  const getActiveColor = () =>
+    activeTool === "eraser" ? [0, 0, 0, 0] : activeColor;
 
-useEffect(() => {
+  useEffect(() => {
     docRef.current = createDocument({ width: 32, height: 32 });
     historyRef.current = new HistoryManager();
   }, []);
@@ -52,6 +61,8 @@ useEffect(() => {
     }
     ctx.restore();
   }, [zoom, pan]);
+
+
   const drawCell = (x, y) => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -78,53 +89,104 @@ useEffect(() => {
 
     ctx.restore();
   };
+
+
   useEffect(() => {
     draw();
   }, [draw]);
+
+
   // ctrl + Z to undo
-useEffect(() => {
-const handleKeyDown = (e) => {
+  useEffect(() => {
+    const handleKeyDown = (e) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
-      if (isCtrlOrCmd && e.key === 'z' && !e.shiftKey) {
+      if (isCtrlOrCmd && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
-        const command = historyRef.current.undoStack[historyRef.current.undoStack.length - 1];
+        const command =
+          historyRef.current.undoStack[historyRef.current.undoStack.length - 1];
         historyRef.current.undo(docRef.current);
         if (command && command.x !== undefined) {
           drawCell(command.x, command.y);
         } else {
           draw();
         }
-      } else if (isCtrlOrCmd && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+      } else if (
+        isCtrlOrCmd &&
+        (e.key === "y" || (e.key === "z" && e.shiftKey))
+      ) {
         e.preventDefault();
         historyRef.current.redo(docRef.current);
-        const command = historyRef.current.undoStack[historyRef.current.undoStack.length - 1];
+        const command =
+          historyRef.current.undoStack[historyRef.current.undoStack.length - 1];
         if (command && command.x !== undefined) {
           drawCell(command.x, command.y);
         } else {
           draw();
         }
-      } else if (e.key === 'p') {
-        setActiveTool('pencil');
-      } else if (e.key === 'e') {
-        setActiveTool('eraser');
-      } else if (e.key === 'i') {
-        setActiveTool('eyedropper');
-      } else if (e.key === 'b') {
-        setActiveTool('bucket');
-      } else if (e.key === 'l') {
-        setActiveTool('line');
+      } else if (e.key === "p") {
+        setActiveTool("pencil");
+      } else if (e.key === "e") {
+        setActiveTool("eraser");
+      } else if (e.key === "i") {
+        setActiveTool("eyedropper");
+      } else if (e.key === "b") {
+        setActiveTool("bucket");
+      } else if (e.key === "l") {
+        setActiveTool("line");
+      } else if (e.key === 'c') {
+        setActiveTool('circle');
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [draw, activeTool]);
-const drawLinePreview = (x0, y0, x1, y1) => {
-    draw(); // redraw the real committed state first, clearing any old preview
+    // shape drawing
+  const drawCirclePreview = (centerX, centerY, currentX, currentY) => {
+    draw(); // clear old preview by redrawing committed state
+
+    const radius = Math.round(
+      Math.sqrt((currentX - centerX) ** 2 + (currentY - centerY) ** 2),
+    );
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.translate(pan.x, pan.y);
+    ctx.scale(zoom, zoom);
+
+    const [r, g, b, a] = getActiveColor();
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+
+    // reuse the same midpoint circle walk, just for preview, no Command involved
+    let x = radius, y = 0, err = 0;
+    const plot = (px, py) => ctx.fillRect(px, py, 1, 1);
+
+    while (x >= y) {
+      plot(centerX + x, centerY + y);
+      plot(centerX + y, centerY + x);
+      plot(centerX - y, centerY + x);
+      plot(centerX - x, centerY + y);
+      plot(centerX - x, centerY - y);
+      plot(centerX - y, centerY - x);
+      plot(centerX + y, centerY - x);
+      plot(centerX + x, centerY - y);
+
+      y += 1;
+      if (err <= 0) err += 2 * y + 1;
+      if (err > 0) { x -= 1; err -= 2 * x + 1; }
+    }
+
+    ctx.restore();
+  };
+
+  const drawLinePreview = (x0, y0, x1, y1) => {
+    draw(); // redraw the real committed state first, clearing any old preview
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
     ctx.save();
     ctx.translate(pan.x, pan.y);
     ctx.scale(zoom, zoom);
@@ -137,14 +199,22 @@ const drawLinePreview = (x0, y0, x1, y1) => {
     const dy = Math.abs(y1 - y0);
     const sx = x1 >= x0 ? 1 : -1;
     const sy = y1 >= y0 ? 1 : -1;
-    let x = x0, y = y0, err = dx - dy;
+    let x = x0,
+      y = y0,
+      err = dx - dy;
 
     while (true) {
       ctx.fillRect(x, y, 1, 1);
       if (x === x1 && y === y1) break;
       const e2 = 2 * err;
-      if (e2 > -dy) { err -= dy; x += sx; }
-      if (e2 < dx) { err += dx; y += sy; }
+      if (e2 > -dy) {
+        err -= dy;
+        x += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y += sy;
+      }
     }
 
     ctx.restore();
@@ -159,7 +229,7 @@ const drawLinePreview = (x0, y0, x1, y1) => {
     const gridY = Math.floor((screenY - pan.y) / zoom);
     return { gridX, gridY };
   };
-const paintLine = (x0, y0, x1, y1) => {
+  const paintLine = (x0, y0, x1, y1) => {
     // Bresenham's line algorithm — walks every grid cell between two points
     const dx = Math.abs(x1 - x0);
     const dy = Math.abs(y1 - y0);
@@ -174,7 +244,13 @@ const paintLine = (x0, y0, x1, y1) => {
     while (true) {
       if (x >= 0 && y >= 0 && x < doc.meta.width && y < doc.meta.height) {
         const layer = doc.frames[0].layers[0];
-        const command = new DrawPixelCommand(layer, x, y, doc.meta.width, getActiveColor());
+        const command = new DrawPixelCommand(
+          layer,
+          x,
+          y,
+          doc.meta.width,
+          getActiveColor(),
+        );
         historyRef.current.execute(command, doc);
       }
 
@@ -193,13 +269,19 @@ const paintLine = (x0, y0, x1, y1) => {
 
     draw();
   };
-const paintAt = (clientX, clientY) => {
+  const paintAt = (clientX, clientY) => {
     const doc = docRef.current;
     const { gridX, gridY } = screenToGrid(clientX, clientY);
 
-    if (gridX < 0 || gridY < 0 || gridX >= doc.meta.width || gridY >= doc.meta.height) return;
+    if (
+      gridX < 0 ||
+      gridY < 0 ||
+      gridX >= doc.meta.width ||
+      gridY >= doc.meta.height
+    )
+      return;
 
-    if (activeTool === 'eyedropper') {
+    if (activeTool === "eyedropper") {
       const layer = doc.frames[0].layers[0];
       const index = (gridY * doc.meta.width + gridX) * 4;
       const sampled = [
@@ -211,19 +293,37 @@ const paintAt = (clientX, clientY) => {
       if (sampled[3] > 0) setActiveColor(sampled); // only if not fully transparent
       return; // don't fall through to drawing logic
     }
-    if (activeTool === 'bucket') {
-          const layer = doc.frames[0].layers[0];
-          const command = new BucketFillCommand(layer, gridX, gridY, doc.meta.width, doc.meta.height, getActiveColor());
-          historyRef.current.execute(command, doc);
-          draw(); // full redraw — bucket fill can touch many cells, not just one
-          lastPaintedCell.current = { gridX, gridY };
-          return;
-     }
+    if (activeTool === "bucket") {
+      const layer = doc.frames[0].layers[0];
+      const command = new BucketFillCommand(
+        layer,
+        gridX,
+        gridY,
+        doc.meta.width,
+        doc.meta.height,
+        getActiveColor(),
+      );
+      historyRef.current.execute(command, doc);
+      draw(); // full redraw — bucket fill can touch many cells, not just one
+      lastPaintedCell.current = { gridX, gridY };
+      return;
+    }
     if (lastPaintedCell.current) {
-      paintLine(lastPaintedCell.current.gridX, lastPaintedCell.current.gridY, gridX, gridY);
+      paintLine(
+        lastPaintedCell.current.gridX,
+        lastPaintedCell.current.gridY,
+        gridX,
+        gridY,
+      );
     } else {
       const layer = doc.frames[0].layers[0];
-      const command = new DrawPixelCommand(layer, gridX, gridY, doc.meta.width, getActiveColor());
+      const command = new DrawPixelCommand(
+        layer,
+        gridX,
+        gridY,
+        doc.meta.width,
+        getActiveColor(),
+      );
       historyRef.current.execute(command, doc);
       draw();
     }
@@ -231,7 +331,7 @@ const paintAt = (clientX, clientY) => {
     lastPaintedCell.current = { gridX, gridY };
   };
   const rgbaToHex = ([r, g, b]) => {
-    const toHex = (n) => n.toString(16).padStart(2, '0');
+    const toHex = (n) => n.toString(16).padStart(2, "0");
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   };
   const hexToRgba = (hex) => {
@@ -250,14 +350,18 @@ const paintAt = (clientX, clientY) => {
     setZoom(newZoom);
   };
 
-const handleMouseDown = (e) => {
+  const handleMouseDown = (e) => {
     if (e.shiftKey) {
       isDragging.current = true;
       lastMouse.current = { x: e.clientX, y: e.clientY };
       return;
     }
-
-    if (activeTool === 'line') {
+if (activeTool === 'circle') {
+      const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
+      circleCenter.current = { gridX, gridY };
+      return;
+    }
+    if (activeTool === "line") {
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
       lineStart.current = { gridX, gridY };
       return;
@@ -267,7 +371,7 @@ const handleMouseDown = (e) => {
     paintAt(e.clientX, e.clientY);
   };
 
-const handleMouseMove = (e) => {
+  const handleMouseMove = (e) => {
     if (isDragging.current) {
       const dx = e.clientX - lastMouse.current.x;
       const dy = e.clientY - lastMouse.current.y;
@@ -275,10 +379,19 @@ const handleMouseMove = (e) => {
       setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
       return;
     }
-
-    if (activeTool === 'line' && lineStart.current) {
+    if (activeTool === 'circle' && circleCenter.current) {
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
-      drawLinePreview(lineStart.current.gridX, lineStart.current.gridY, gridX, gridY);
+      drawCirclePreview(circleCenter.current.gridX, circleCenter.current.gridY, gridX, gridY);
+      return;
+    }
+    if (activeTool === "line" && lineStart.current) {
+      const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
+      drawLinePreview(
+        lineStart.current.gridX,
+        lineStart.current.gridY,
+        gridX,
+        gridY,
+      );
       return;
     }
 
@@ -287,8 +400,8 @@ const handleMouseMove = (e) => {
     }
   };
 
-const handleMouseUp = (e) => {
-    if (activeTool === 'line' && lineStart.current) {
+  const handleMouseUp = (e) => {
+    if (activeTool === "line" && lineStart.current) {
       const doc = docRef.current;
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
       const layer = doc.frames[0].layers[0];
@@ -310,21 +423,49 @@ const handleMouseUp = (e) => {
     isDragging.current = false;
     isDrawing.current = false;
     lastPaintedCell.current = null;
+
+    //circle
+    if (activeTool === 'circle' && circleCenter.current) {
+      const doc = docRef.current;
+      const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
+      const radius = Math.round(
+        Math.sqrt(
+          (gridX - circleCenter.current.gridX) ** 2 + (gridY - circleCenter.current.gridY) ** 2,
+        ),
+      );
+      const layer = doc.frames[0].layers[0];
+      const command = new CircleCommand(
+        layer,
+        circleCenter.current.gridX,
+        circleCenter.current.gridY,
+        radius,
+        doc.meta.width,
+        doc.meta.height,
+        getActiveColor(),
+      );
+      historyRef.current.execute(command, doc);
+      draw();
+      circleCenter.current = null;
+    }
   };
 
- return (
+  return (
     <div>
- <input
+      <input
         type="color"
         value={rgbaToHex(activeColor)}
         onChange={(e) => setActiveColor(hexToRgba(e.target.value))}
-        style={{ marginBottom: '8px', display: 'block' }}
+        style={{ marginBottom: "8px", display: "block" }}
       />
       <canvas
         ref={canvasRef}
         width={500}
         height={500}
-        style={{ border: '1px solid #333', imageRendering: 'pixelated', cursor: 'crosshair' }}
+        style={{
+          border: "1px solid #333",
+          imageRendering: "pixelated",
+          cursor: "crosshair",
+        }}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
