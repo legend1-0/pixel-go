@@ -1,25 +1,23 @@
 // apps/web/src/components/canvas/CanvasViewport.jsx
 import { useRef, useEffect, useState, useCallback } from "react";
-import {
-  createDocument,
-  DrawPixelCommand,
-  BucketFillCommand,
-  LineCommand,
-  HistoryManager,
-  CircleCommand
-} from "@pixel-art-studio/engine";
+import { createDocument, DrawPixelCommand, BucketFillCommand, LineCommand, CircleCommand, RectangleCommand, HistoryManager } from '@pixel-art-studio/engine';
+
 function CanvasViewport() {
   const canvasRef = useRef(null);
   const docRef = useRef(null);
   const historyRef = useRef(null); // holds HistoryManager, no re-renders needed
   const lastPaintedCell = useRef(null); // { gridX, gridY } or null
+  
   const [zoom, setZoom] = useState(10);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  
   const isDragging = useRef(false);
   const isDrawing = useRef(false); // separate from panning-drag
+ 
   const lastMouse = useRef({ x: 0, y: 0 });
   const lineStart = useRef(null); // { gridX, gridY } while dragging a line, else null
   const circleCenter = useRef(null);
+  const rectStart = useRef(null);
   const [activeTool, setActiveTool] = useState("pencil"); // 'pencil' | 'eraser'
   const [activeColor, setActiveColor] = useState([30, 30, 30, 255]); // [r, g, b, a]
   const getActiveColor = () =>
@@ -136,6 +134,8 @@ function CanvasViewport() {
         setActiveTool("line");
       } else if (e.key === 'c') {
         setActiveTool('circle');
+      } else if (e.key === 'r') {
+        setActiveTool('rectangle');
       }
     };
 
@@ -181,7 +181,34 @@ function CanvasViewport() {
 
     ctx.restore();
   };
+  const drawRectanglePreview = (x0, y0, x1, y1) => {
+    draw(); // clear old preview
 
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.translate(pan.x, pan.y);
+    ctx.scale(zoom, zoom);
+
+    const [r, g, b, a] = getActiveColor();
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+
+    const minX = Math.min(x0, x1);
+    const maxX = Math.max(x0, x1);
+    const minY = Math.min(y0, y1);
+    const maxY = Math.max(y0, y1);
+
+    for (let x = minX; x <= maxX; x++) {
+      ctx.fillRect(x, minY, 1, 1);
+      ctx.fillRect(x, maxY, 1, 1);
+    }
+    for (let y = minY; y <= maxY; y++) {
+      ctx.fillRect(minX, y, 1, 1);
+      ctx.fillRect(maxX, y, 1, 1);
+    }
+
+    ctx.restore();
+  };
   const drawLinePreview = (x0, y0, x1, y1) => {
     draw(); // redraw the real committed state first, clearing any old preview
 
@@ -219,6 +246,9 @@ function CanvasViewport() {
 
     ctx.restore();
   };
+
+
+
   // convert a screen mouse position to grid cell coordinates
   const screenToGrid = (clientX, clientY) => {
     const canvas = canvasRef.current;
@@ -356,7 +386,7 @@ function CanvasViewport() {
       lastMouse.current = { x: e.clientX, y: e.clientY };
       return;
     }
-if (activeTool === 'circle') {
+    if (activeTool === 'circle') {
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
       circleCenter.current = { gridX, gridY };
       return;
@@ -364,6 +394,11 @@ if (activeTool === 'circle') {
     if (activeTool === "line") {
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
       lineStart.current = { gridX, gridY };
+      return;
+    }
+    if (activeTool === 'rectangle') {
+      const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
+      rectStart.current = { gridX, gridY };
       return;
     }
 
@@ -384,6 +419,12 @@ if (activeTool === 'circle') {
       drawCirclePreview(circleCenter.current.gridX, circleCenter.current.gridY, gridX, gridY);
       return;
     }
+    if (activeTool === 'rectangle' && rectStart.current) {
+      const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
+      drawRectanglePreview(rectStart.current.gridX, rectStart.current.gridY, gridX, gridY);
+      return;
+    }
+
     if (activeTool === "line" && lineStart.current) {
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
       drawLinePreview(
@@ -446,6 +487,25 @@ if (activeTool === 'circle') {
       historyRef.current.execute(command, doc);
       draw();
       circleCenter.current = null;
+    }
+    //rectangle
+    if (activeTool === 'rectangle' && rectStart.current) {
+      const doc = docRef.current;
+      const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
+      const layer = doc.frames[0].layers[0];
+      const command = new RectangleCommand(
+        layer,
+        rectStart.current.gridX,
+        rectStart.current.gridY,
+        gridX,
+        gridY,
+        doc.meta.width,
+        doc.meta.height,
+        getActiveColor(),
+      );
+      historyRef.current.execute(command, doc);
+      draw();
+      rectStart.current = null;
     }
   };
 
