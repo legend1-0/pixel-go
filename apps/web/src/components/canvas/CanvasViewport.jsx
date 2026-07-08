@@ -29,17 +29,18 @@ function CanvasViewport() {
   const rectStart = useRef(null);
   const [activeTool, setActiveTool] = useState("pencil"); // 'pencil' | 'eraser'
   const [activeColor, setActiveColor] = useState([30, 30, 30, 255]); // [r, g, b, a]
-
+  const [paletteState, setPaletteState] = useState([]);
   const [activeLayerIndex, setActiveLayerIndex] = useState(0);
   const getActiveLayer = () =>
     docRef.current.frames[0].layers[activeLayerIndex];
   const getActiveColor = () =>
     activeTool === "eraser" ? [0, 0, 0, 0] : activeColor;
 
-  useEffect(() => {
+useEffect(() => {
     docRef.current = createDocument({ width: 32, height: 32 });
     historyRef.current = new HistoryManager();
     setLayersState([...docRef.current.frames[0].layers]);
+    setPaletteState([...docRef.current.palette]);
   }, []);
 
   const draw = useCallback(() => {
@@ -325,7 +326,22 @@ function CanvasViewport() {
     setLayersState([...doc.frames[0].layers]);
     draw();
   };
+const saveColorToPalette = () => {
+    const doc = docRef.current;
+    const alreadyExists = doc.palette.some(
+      (c) => c[0] === activeColor[0] && c[1] === activeColor[1] && c[2] === activeColor[2] && c[3] === activeColor[3],
+    );
+    if (alreadyExists) return; // avoid duplicate swatches
 
+    doc.palette.push(activeColor);
+    setPaletteState([...doc.palette]);
+  };
+
+  const removeColorFromPalette = (index) => {
+    const doc = docRef.current;
+    doc.palette.splice(index, 1);
+    setPaletteState([...doc.palette]);
+  };
   // convert a screen mouse position to grid cell coordinates
   const screenToGrid = (clientX, clientY) => {
     const canvas = canvasRef.current;
@@ -676,6 +692,26 @@ function CanvasViewport() {
             </label>
           </div>
         ))}
+      </div>
+    <div style={{ width: '200px' }}>
+        <button onClick={saveColorToPalette}>+ Save Current Color</button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
+          {paletteState.map((color, index) => (
+            <div
+              key={index}
+              onClick={() => setActiveColor(color)}
+              onDoubleClick={() => removeColorFromPalette(index)}
+              title="Click to use, double-click to remove"
+              style={{
+                width: '24px',
+                height: '24px',
+                backgroundColor: `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${color[3] / 255})`,
+                border: '1px solid #999',
+                cursor: 'pointer',
+              }}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
