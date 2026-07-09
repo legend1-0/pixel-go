@@ -1,7 +1,7 @@
-import CanvasViewport from './components/canvas/CanvasViewport';
+import Editor from './components/editor/Editor';
 
 function App() {
-  return <CanvasViewport />;
+  return <Editor />;
 }
 
 export default App;
