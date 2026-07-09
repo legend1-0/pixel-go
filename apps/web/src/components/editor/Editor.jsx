@@ -1,6 +1,7 @@
 // apps/web/src/components/editor/Editor.jsx
 import { useRef, useEffect, useState, useCallback } from "react";
 import GIF from "gif.js";
+import UPNG from "upng-js";
 import {
   createDocument,
   createLayer,
@@ -551,6 +552,34 @@ function Editor() {
 
     gif.render();
   };
+
+  const exportAPNG = () => {
+    const doc = docRef.current;
+    const width = doc.meta.width;
+    const height = doc.meta.height;
+
+    // UPNG needs raw ArrayBuffers of RGBA pixel data, one per frame
+    const frameBuffers = doc.frames.map((frame) => {
+      const frameCanvas = renderFrameToCanvas(frame, width, height);
+      const ctx = frameCanvas.getContext("2d");
+      const imageData = ctx.getImageData(0, 0, width, height);
+      return imageData.data.buffer;
+    });
+
+    const delays = doc.frames.map((frame) => frame.duration);
+
+    // UPNG.encode(buffers, width, height, colorDepth, delays)
+    // colorDepth of 0 = lossless, preserves full alpha
+    const apngBuffer = UPNG.encode(frameBuffers, width, height, 0, delays);
+    const blob = new Blob([apngBuffer], { type: "image/png" });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${doc.meta.name || "pixel-art"}.png`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
   // ---- drawing / tools ----
   const screenToGrid = (clientX, clientY) => {
     const canvas = canvasRef.current;
@@ -901,8 +930,11 @@ if (checkingAutosave) {
         <button onClick={exportSpriteSheet} style={{ marginBottom: "8px", display: "block" }}>
           Export Sprite Sheet
         </button>
-        <button onClick={exportGIF} style={{ marginBottom: "8px", display: "block" }}>
+       <button onClick={exportGIF} style={{ marginBottom: "8px", display: "block" }}>
           Export GIF
+        </button>
+        <button onClick={exportAPNG} style={{ marginBottom: "8px", display: "block" }}>
+          Export APNG
         </button>
         <input
           type="file"
