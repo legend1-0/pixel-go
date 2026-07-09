@@ -411,6 +411,47 @@ function Editor() {
     doc.palette.splice(index, 1);
     setPaletteState([...doc.palette]);
   };
+  //import 
+  const importPNG = (file) => {
+    const doc = docRef.current;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      if (img.width !== doc.meta.width || img.height !== doc.meta.height) {
+        alert(
+          `This image is ${img.width}×${img.height}, but your project is ${doc.meta.width}×${doc.meta.height}. Import requires an exact size match for now.`,
+        );
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      // draw the image onto a temporary canvas so we can read its raw pixels
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = img.width;
+      tempCanvas.height = img.height;
+      const tempCtx = tempCanvas.getContext("2d");
+      tempCtx.drawImage(img, 0, 0);
+      const imageData = tempCtx.getImageData(0, 0, img.width, img.height);
+
+      const frame = getActiveFrame();
+      const newLayer = createLayer(
+        file.name.replace(/\.[^/.]+$/, "") || "Imported Layer",
+        doc.meta.width,
+        doc.meta.height,
+      );
+      newLayer.pixels.set(imageData.data); // copy the imported pixels in directly
+
+      frame.layers.push(newLayer);
+      setActiveLayerIndex(frame.layers.length - 1);
+      setLayersState([...frame.layers]);
+      draw();
+
+      URL.revokeObjectURL(url);
+    };
+
+    img.src = url;
+  };
 
   // ---- export ----
   const renderFrameToCanvas = (frame, width, height) => {
@@ -455,7 +496,33 @@ function Editor() {
       URL.revokeObjectURL(url);
     }, "image/png");
   };
+  const exportSpriteSheet = () => {
+    const doc = docRef.current;
+    const frameWidth = doc.meta.width;
+    const frameHeight = doc.meta.height;
+    const frameCount = doc.frames.length;
 
+    // lay frames out in a single horizontal row — simplest, most universally
+    // compatible layout; a grid layout is a nice future enhancement
+    const sheetCanvas = document.createElement("canvas");
+    sheetCanvas.width = frameWidth * frameCount;
+    sheetCanvas.height = frameHeight;
+    const sheetCtx = sheetCanvas.getContext("2d");
+
+    doc.frames.forEach((frame, index) => {
+      const frameCanvas = renderFrameToCanvas(frame, frameWidth, frameHeight);
+      sheetCtx.drawImage(frameCanvas, index * frameWidth, 0);
+    });
+
+    sheetCanvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${doc.meta.name || "pixel-art"}-spritesheet.png`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  };
   // ---- drawing / tools ----
   const screenToGrid = (clientX, clientY) => {
     const canvas = canvasRef.current;
@@ -777,6 +844,8 @@ function Editor() {
     return [r, g, b, 255];
   };
 
+  
+
 if (checkingAutosave) {
     return <div style={{ padding: "24px" }}>Loading...</div>;
   }
@@ -801,6 +870,18 @@ if (checkingAutosave) {
         <button onClick={exportPNG} style={{ marginBottom: "8px", display: "block" }}>
           Export PNG
         </button>
+        <button onClick={exportSpriteSheet} style={{ marginBottom: "8px", display: "block" }}>
+          Export Sprite Sheet
+        </button>
+        <input
+          type="file"
+          accept="image/png"
+          onChange={(e) => {
+            if (e.target.files[0]) importPNG(e.target.files[0]);
+            e.target.value = ""; // reset so importing the same file twice still fires onChange
+          }}
+          style={{ marginBottom: "8px", display: "block" }}
+        />
         <input
           type="color"
           value={rgbaToHex(activeColor)}
