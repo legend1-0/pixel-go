@@ -1,0 +1,101 @@
+.heroWrapper {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #070708;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.mainCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.interfaceLayer {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 40px;
+  box-sizing: border-box;
+  pointer-events: none; /* Let clicks pass down to canvas simulation where appropriate */
+}
+
+.navHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: #a1a1a6;
+}
+
+.heroContent {
+  max-width: 640px;
+  margin-bottom: 8vh;
+  pointer-events: auto; /* Re-enable clicks for CTA interaction */
+}
+
+.title {
+  font-size: 72px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #f5f5f7;
+  margin: 0 0 16px 0;
+  line-height: 1.05;
+}
+
+.subtitle {
+  font-size: 18px;
+  line-height: 1.5;
+  color: #86868b;
+  margin: 0 0 32px 0;
+  font-weight: 400;
+}
+
+.ctaButton {
+  position: relative;
+  background: transparent;
+  border: none;
+  padding: 14px 28px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btnText {
+  position: relative;
+  z-index: 2;
+}
+
+.btnBorder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 1;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
