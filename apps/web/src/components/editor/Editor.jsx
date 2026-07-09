@@ -2,6 +2,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import GIF from "gif.js";
 import UPNG from "upng-js";
+import JSZip from "jszip";
 import {
   createDocument,
   createLayer,
@@ -211,6 +212,11 @@ function Editor() {
 
     ctx.restore();
   };
+  useEffect(() => {
+    if (documentReady) {
+      draw();
+    }
+  }, [documentReady]);
 
   useEffect(() => {
     draw();
@@ -453,6 +459,61 @@ function Editor() {
 
     img.src = url;
   };
+  const importProjectFile = async (file) => {
+    const zip = await JSZip.loadAsync(file);
+    const manifestText = await zip.file("manifest.json").async("string");
+    const manifest = JSON.parse(manifestText);
+    const paletteText = await zip.file("palette.json").async("string");
+    const palette = JSON.parse(paletteText);
+
+    const width = manifest.width;
+    const height = manifest.height;
+
+    const loadLayerPixels = async (frameIndex, layerIndex) => {
+      const blob = await zip.file(`frame-${frameIndex}-layer-${layerIndex}.png`).async("blob");
+      const img = await createImageBitmap(blob);
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = width;
+      tempCanvas.height = height;
+      const ctx = tempCanvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      return ctx.getImageData(0, 0, width, height).data;
+    };
+
+    const frames = [];
+    for (let f = 0; f < manifest.frames.length; f++) {
+      const frameMeta = manifest.frames[f];
+      const layers = [];
+      for (let l = 0; l < frameMeta.layers.length; l++) {
+        const layerMeta = frameMeta.layers[l];
+        const pixels = await loadLayerPixels(f, l);
+        layers.push({
+          id: crypto.randomUUID(),
+          name: layerMeta.name,
+          opacity: layerMeta.opacity,
+          visible: layerMeta.visible,
+          locked: layerMeta.locked,
+          pixels: new Uint8ClampedArray(pixels),
+        });
+      }
+      frames.push({ id: crypto.randomUUID(), duration: frameMeta.duration, layers });
+    }
+
+    const newDoc = {
+      meta: { name: manifest.name, width, height, createdAt: new Date().toISOString() },
+      palette,
+      frames,
+    };
+
+    docRef.current = newDoc;
+    historyRef.current = new HistoryManager();
+    setLayersState([...newDoc.frames[0].layers]);
+    setPaletteState([...newDoc.palette]);
+    setFramesState([...newDoc.frames]);
+    setActiveFrameIndex(0);
+    setActiveLayerIndex(0);
+    setDocumentReady(true);
+  };
 
   // ---- export ----
   const renderFrameToCanvas = (frame, width, height) => {
@@ -577,6 +638,55 @@ function Editor() {
     const link = document.createElement("a");
     link.href = url;
     link.download = `${doc.meta.name || "pixel-art"}.png`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportProjectFile = async () => {
+    const doc = docRef.current;
+    const zip = new JSZip();
+
+    const manifest = {
+      name: doc.meta.name,
+      width: doc.meta.width,
+      height: doc.meta.height,
+      frameCount: doc.frames.length,
+      frames: doc.frames.map((frame) => ({
+        duration: frame.duration,
+        layers: frame.layers.map((layer) => ({
+          name: layer.name,
+          opacity: layer.opacity,
+          visible: layer.visible,
+          locked: layer.locked,
+        })),
+      })),
+    };
+    zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+    zip.file("palette.json", JSON.stringify(doc.palette));
+
+    // one PNG per layer per frame, so raw pixel data round-trips losslessly
+    for (let f = 0; f < doc.frames.length; f++) {
+      const frame = doc.frames[f];
+      for (let l = 0; l < frame.layers.length; l++) {
+        const layer = frame.layers[l];
+        const layerCanvas = document.createElement("canvas");
+        layerCanvas.width = doc.meta.width;
+        layerCanvas.height = doc.meta.height;
+        const ctx = layerCanvas.getContext("2d");
+        const imageData = ctx.createImageData(doc.meta.width, doc.meta.height);
+        imageData.data.set(layer.pixels);
+        ctx.putImageData(imageData, 0, 0);
+
+        const blob = await new Promise((resolve) => layerCanvas.toBlob(resolve, "image/png"));
+        zip.file(`frame-${f}-layer-${l}.png`, blob);
+      }
+    }
+
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(zipBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${doc.meta.name || "pixel-art"}.pxls`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -936,6 +1046,18 @@ if (checkingAutosave) {
         <button onClick={exportAPNG} style={{ marginBottom: "8px", display: "block" }}>
           Export APNG
         </button>
+        <button onClick={exportProjectFile} style={{ marginBottom: "8px", display: "block" }}>
+          Export Project File (.pxls)
+        </button>
+        <input
+          type="file"
+          accept=".pxls"
+          onChange={(e) => {
+            if (e.target.files[0]) importProjectFile(e.target.files[0]);
+            e.target.value = "";
+          }}
+          style={{ marginBottom: "8px", display: "block" }}
+        />
         <input
           type="file"
           accept="image/png"
