@@ -1,5 +1,6 @@
 // apps/web/src/components/editor/Editor.jsx
 import { useRef, useEffect, useState, useCallback } from "react";
+import GIF from "gif.js";
 import {
   createDocument,
   createLayer,
@@ -17,7 +18,6 @@ import PalettePanel from "../palette-panel/PalettePanel";
 import TimelinePanel from "../timeline/TimelinePanel";
 import { saveAutosave, loadAutosave } from "../../storage/projectStorage";
 import NewProjectDialog from "../new-project/NewProjectDialog";
-
 function Editor() {
   const canvasRef = useRef(null);
   const docRef = useRef(null);
@@ -523,6 +523,34 @@ function Editor() {
       URL.revokeObjectURL(url);
     }, "image/png");
   };
+  const exportGIF = () => {
+    const doc = docRef.current;
+
+    // eslint-disable-next-line no-undef
+    const gif = new GIF({
+      workers: 2,
+      quality: 10,
+      width: doc.meta.width,
+      height: doc.meta.height,
+      workerScript: "/gif.worker.js",
+    });
+
+    doc.frames.forEach((frame) => {
+      const frameCanvas = renderFrameToCanvas(frame, doc.meta.width, doc.meta.height);
+      gif.addFrame(frameCanvas, { delay: frame.duration });
+    });
+
+    gif.on("finished", (blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${doc.meta.name || "pixel-art"}.gif`;
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+
+    gif.render();
+  };
   // ---- drawing / tools ----
   const screenToGrid = (clientX, clientY) => {
     const canvas = canvasRef.current;
@@ -872,6 +900,9 @@ if (checkingAutosave) {
         </button>
         <button onClick={exportSpriteSheet} style={{ marginBottom: "8px", display: "block" }}>
           Export Sprite Sheet
+        </button>
+        <button onClick={exportGIF} style={{ marginBottom: "8px", display: "block" }}>
+          Export GIF
         </button>
         <input
           type="file"
