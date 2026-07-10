@@ -58,11 +58,11 @@ export class PixelEngine {
     const fontSize = Math.min(this.width * 0.09, 110);
     const fontStyle = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto`;
     const spacing = this.width < 768 ? 6 : 8; 
-    
-    const targets = scanTypography("PIXEL STUDIO", fontStyle, this.width, this.height, spacing);
+    const Hero_Text = "PIXEL Studio"
+    const targets = scanTypography(Hero_Text, fontStyle, this.width, this.height, spacing);
     this.particleSystem.generateFormFromCoordinates(targets);
   }
-
+ 
   // --- Premium Cinematic Camera Automation ---
   playIntroSequence() {
     // Elegant, deliberate lens scale-down matching high-end hardware styling
@@ -123,7 +123,7 @@ export class PixelEngine {
 
   render() {
     // Clear solid frame color pass
-    this.ctx.fillStyle = '#070708';
+    this.ctx.fillStyle = '#F0F0F0';
     this.ctx.fillRect(0, 0, this.width, this.height);
     
     // --- Render Global Camera Scale Transformations ---

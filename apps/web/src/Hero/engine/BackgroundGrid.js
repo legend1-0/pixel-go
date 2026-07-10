@@ -48,7 +48,7 @@ export class BackgroundGrid {
         }
 
         // Apply visual properties
-        ctx.fillStyle = `rgba(245, 245, 247, ${localOpacity})`;
+        ctx.fillStyle = `rgba(20,20,20,${localOpacity})`;
         
         // Render block centered relative to its structural cell frame
         const currentSize = 2 + sizeModifier;

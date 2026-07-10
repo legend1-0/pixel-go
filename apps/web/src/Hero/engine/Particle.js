@@ -7,7 +7,7 @@ export const ParticleState = {
 };
 
 export class Particle {
-  constructor(x, y, color = '#f5f5f7') {
+  constructor(x, y, color = '#e8533a') {
     // Spatial vectors
     this.x = x;
     this.y = y;

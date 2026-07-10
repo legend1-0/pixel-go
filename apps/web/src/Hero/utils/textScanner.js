@@ -17,7 +17,17 @@ export function scanTypography(text, fontStyle, containerWidth, containerHeight,
   ctx.textAlign = 'center';
   
   // Draw typography centered in viewport canvas space
-  ctx.fillText(text, containerWidth / 2, containerHeight / 2);
+  const lines = text.split("\n");
+
+const lineHeight = parseInt(fontStyle.match(/\d+/)[0]) * 1.1;
+
+lines.forEach((line, index) => {
+  ctx.fillText(
+    line,
+    containerWidth / 2,
+    containerHeight / 2 + (index - (lines.length - 1) / 2) * lineHeight
+  );
+});
   
   const imgData = ctx.getImageData(0, 0, containerWidth, containerHeight);
   const buffer = imgData.data;

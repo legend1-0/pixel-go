@@ -1,5 +1,5 @@
 export class TrailParticle {
-  constructor(x, y, vx, vy, color = 'rgba(255, 255, 255, 0.45)') {
+  constructor(x, y, vx, vy, color = 'rgba(20,20,20,0.35)') {
     this.x = x;
     this.y = y;
     

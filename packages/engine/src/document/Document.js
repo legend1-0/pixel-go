@@ -26,8 +26,9 @@ export function createLayer(name, width, height) {
 export function createFrame(width, height) {
   return {
     id: crypto.randomUUID(),
+    name: null,               // ADDED: null means "no custom name, show positional default"
     duration: 100,
-    layers: [createLayer('Layer 1', width, height)],
+    layers: [createLayer(null, width, height)],   // CHANGED: null instead of 'Layer 1'
   };
 }
 
@@ -42,6 +43,7 @@ export function createFrame(width, height) {
 export function createDocument({ name = 'Untitled Project', width = 32, height = 32 } = {}) {
   return {
     meta: {
+      id: crypto.randomUUID(),   // ADDED
       name,
       width,
       height,

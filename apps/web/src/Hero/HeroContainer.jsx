@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react';
-import { useWindowSize } from './hooks/useWindowSize';
-import { PixelEngine } from './engine/PixelEngine';
-import styles from './Hero.module.css';
+import { useEffect, useRef } from "react";
+import { NavLink } from "react-router";
+import { useWindowSize } from "./hooks/useWindowSize";
+import { PixelEngine } from "./engine/PixelEngine";
+
+import styles from "./Hero.module.css";
 
 export default function HeroContainer() {
   const canvasRef = useRef(null);
@@ -10,7 +12,11 @@ export default function HeroContainer() {
 
   useEffect(() => {
     if (canvasRef.current) {
-      engineRef.current = new PixelEngine(canvasRef.current, { width, height, dpr });
+      engineRef.current = new PixelEngine(canvasRef.current, {
+        width,
+        height,
+        dpr,
+      });
     }
     return () => {
       if (engineRef.current) engineRef.current.destroy();
@@ -26,7 +32,7 @@ export default function HeroContainer() {
   return (
     <div className={styles.heroWrapper}>
       <canvas ref={canvasRef} className={styles.mainCanvas} />
-      
+
       <div className={styles.interfaceLayer}>
         <header className={styles.navHeader}>
           <span className={styles.logo}>PX STDO</span>
@@ -36,12 +42,17 @@ export default function HeroContainer() {
         <main className={styles.heroContent}>
           {/* H1 retained strictly for pristine screen-reader accessibility */}
           <h1 className={styles.srOnly}>PIXEL STUDIO</h1>
-          
+
           <p className={styles.subtitle}>
-            A premium, high-performance canvas environment for precision grid designers. Built for the modern web.
+            A premium, high-performance canvas environment for precision grid
+            designers. Built for the modern web.
           </p>
           <button className={styles.ctaButton}>
-            <span className={styles.btnText}>Launch Studio</span>
+            <span className={styles.btnText}>
+              <NavLink to="/editor" end>
+                Launch Studio
+              </NavLink>
+            </span>
             <span className={styles.btnBorder} />
           </button>
         </main>

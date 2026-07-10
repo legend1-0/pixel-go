@@ -1,4 +1,5 @@
 // apps/web/src/components/layers-panel/LayersPanel.jsx
+import InlineEditableName from "../shared/InlineEditableName";
 
 function LayersPanel({
   layers,
@@ -8,6 +9,7 @@ function LayersPanel({
   onDeleteLayer,
   onToggleVisibility,
   onSetOpacity,
+  onRenameLayer,
 }) {
   return (
     <div style={{ width: "200px" }}>
@@ -24,7 +26,11 @@ function LayersPanel({
           }}
         >
           <div>
-            {layer.name}
+            <InlineEditableName
+              value={layer.name}
+              placeholder={`Layer ${index + 1}`}
+              onChange={(newName) => onRenameLayer(index, newName)}
+            />
             <button
               onClick={(e) => {
                 e.stopPropagation();

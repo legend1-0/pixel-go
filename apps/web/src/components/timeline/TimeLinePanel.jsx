@@ -1,4 +1,5 @@
 // apps/web/src/components/timeline/TimelinePanel.jsx
+import InlineEditableName from "../shared/InlineEditableName";
 
 function TimelinePanel({
   frames,
@@ -7,6 +8,7 @@ function TimelinePanel({
   onAddFrame,
   onDuplicateFrame,
   onDeleteFrame,
+  onRenameFrame,
   onionSkinEnabled,
   onToggleOnionSkin,
   isPlaying,
@@ -14,6 +16,7 @@ function TimelinePanel({
 }) {
   return (
     <div style={{ width: "250px" }}>
+      <p style={{ color: "red", fontWeight: "bold" }}>DEBUG MARKER 12345</p>
       <button onClick={onAddFrame}>+ Add Frame</button>
       <button onClick={onTogglePlay} style={{ marginLeft: "6px" }}>
         {isPlaying ? "⏸ Pause" : "▶ Play"}
@@ -39,7 +42,13 @@ function TimelinePanel({
               textAlign: "center",
             }}
           >
-            <div>Frame {index + 1}</div>
+            <div>
+              <InlineEditableName
+                value={frame.name}
+                placeholder={`Frame ${index + 1}`}
+                onChange={(newName) => onRenameFrame(index, newName)}
+              />
+            </div>
             <button
               onClick={(e) => {
                 e.stopPropagation();

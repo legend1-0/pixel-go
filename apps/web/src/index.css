@@ -17,8 +17,8 @@
 html, body {
   width: 100%;
   height: 100%;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background-color: var(--text-primary);
+  color: var(--bg-primary);
   font-family: var(--font-sans);
   overflow-x: hidden;
 }
@@ -32,7 +32,7 @@ body {
 .app-viewport {
   width: 100%;
   position: relative;
-  background-color: var(--bg-primary);
+  background-color: var(--text-primary);
 }
 
 /* Optimization: Smooth user-select options for interactive elements */
@@ -40,6 +40,6 @@ button, a {
   user-select: none;
   -webkit-user-select: none;
 }
-canvas {
+/* canvas {
   cursor: none !important;
-}
+} */

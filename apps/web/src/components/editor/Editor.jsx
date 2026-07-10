@@ -14,12 +14,18 @@ import {
   RectangleCommand,
   HistoryManager,
 } from "@pixel-art-studio/engine";
+import Toolbar from "../toolbar/Toolbar";
 import CanvasViewport from "../canvas/CanvasViewport";
 import LayersPanel from "../layers-panel/LayersPanel";
 import PalettePanel from "../palette-panel/PalettePanel";
 import TimelinePanel from "../timeline/TimelinePanel";
-import { saveAutosave, loadAutosave } from "../../storage/projectStorage";
+import ProjectLibrary from "../project-library/ProjectLibrary";
 import NewProjectDialog from "../new-project/NewProjectDialog";
+import InlineEditableName from "../shared/InlineEditableName";
+import { saveProject, listProjects, loadProjectData, renameProjectMeta, deleteProject } from "../../storage/projectStorage";
+
+
+
 function Editor() {
   const canvasRef = useRef(null);
   const docRef = useRef(null);
@@ -37,11 +43,10 @@ function Editor() {
   const [activeLayerIndex, setActiveLayerIndex] = useState(0);
   const [onionSkinEnabled, setOnionSkinEnabled] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [checkingAutosave, setCheckingAutosave] = useState(true);
-  const [autosaveAvailable, setAutosaveAvailable] = useState(false);
   const [documentReady, setDocumentReady] = useState(false);
-
-  const pendingAutosaveRef = useRef(null);
+  const [projectName, setProjectName] = useState("");
+  const [libraryLoading, setLibraryLoading] = useState(true);
+  const [projectsList, setProjectsList] = useState([]);
   const isDragging = useRef(false);
   const isDrawing = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
@@ -55,21 +60,223 @@ function Editor() {
   const getActiveColor = () =>
     activeTool === "eraser" ? [0, 0, 0, 0] : activeColor;
 
-  const resumeAutosave = () => {
-    const saved = pendingAutosaveRef.current;
-    docRef.current = saved;
+
+  // ---- export ----
+  const renderFrameToCanvas = (frame, width, height) => {
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = width;
+    exportCanvas.height = height;
+    const ctx = exportCanvas.getContext("2d");
+
+    for (const layer of frame.layers) {
+      if (!layer.visible) continue;
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const index = (y * width + x) * 4;
+          const a = layer.pixels[index + 3];
+          if (a > 0) {
+            const r = layer.pixels[index];
+            const g = layer.pixels[index + 1];
+            const b = layer.pixels[index + 2];
+            const effectiveAlpha = (a / 255) * layer.opacity;
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${effectiveAlpha})`;
+            ctx.fillRect(x, y, 1, 1);
+          }
+        }
+      }
+    }
+
+    return exportCanvas;
+  };
+
+  const exportPNG = () => {
+    const doc = docRef.current;
+    const frame = getActiveFrame();
+    const exportCanvas = renderFrameToCanvas(frame, doc.meta.width, doc.meta.height);
+
+    exportCanvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${doc.meta.name || "pixel-art"}.png`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  };
+  const exportSpriteSheet = () => {
+    const doc = docRef.current;
+    const frameWidth = doc.meta.width;
+    const frameHeight = doc.meta.height;
+    const frameCount = doc.frames.length;
+
+    // lay frames out in a single horizontal row — simplest, most universally
+    // compatible layout; a grid layout is a nice future enhancement
+    const sheetCanvas = document.createElement("canvas");
+    sheetCanvas.width = frameWidth * frameCount;
+    sheetCanvas.height = frameHeight;
+    const sheetCtx = sheetCanvas.getContext("2d");
+
+    doc.frames.forEach((frame, index) => {
+      const frameCanvas = renderFrameToCanvas(frame, frameWidth, frameHeight);
+      sheetCtx.drawImage(frameCanvas, index * frameWidth, 0);
+    });
+
+    sheetCanvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${doc.meta.name || "pixel-art"}-spritesheet.png`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  };
+  const exportGIF = () => {
+    const doc = docRef.current;
+
+    // eslint-disable-next-line no-undef
+    const gif = new GIF({
+      workers: 2,
+      quality: 10,
+      width: doc.meta.width,
+      height: doc.meta.height,
+      workerScript: "/gif.worker.js",
+    });
+
+    doc.frames.forEach((frame) => {
+      const frameCanvas = renderFrameToCanvas(frame, doc.meta.width, doc.meta.height);
+      gif.addFrame(frameCanvas, { delay: frame.duration });
+    });
+
+    gif.on("finished", (blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${doc.meta.name || "pixel-art"}.gif`;
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+
+    gif.render();
+  };
+
+  const exportAPNG = () => {
+    const doc = docRef.current;
+    const width = doc.meta.width;
+    const height = doc.meta.height;
+
+    // UPNG needs raw ArrayBuffers of RGBA pixel data, one per frame
+    const frameBuffers = doc.frames.map((frame) => {
+      const frameCanvas = renderFrameToCanvas(frame, width, height);
+      const ctx = frameCanvas.getContext("2d");
+      const imageData = ctx.getImageData(0, 0, width, height);
+      return imageData.data.buffer;
+    });
+
+    const delays = doc.frames.map((frame) => frame.duration);
+
+    // UPNG.encode(buffers, width, height, colorDepth, delays)
+    // colorDepth of 0 = lossless, preserves full alpha
+    const apngBuffer = UPNG.encode(frameBuffers, width, height, 0, delays);
+    const blob = new Blob([apngBuffer], { type: "image/png" });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${doc.meta.name || "pixel-art"}.png`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportProjectFile = async () => {
+    const doc = docRef.current;
+    const zip = new JSZip();
+
+    const manifest = {
+      name: doc.meta.name,
+      width: doc.meta.width,
+      height: doc.meta.height,
+      frameCount: doc.frames.length,
+      frames: doc.frames.map((frame) => ({
+        duration: frame.duration,
+        name: frame.name, // ADDED
+        layers: frame.layers.map((layer) => ({
+          name: layer.name,
+          opacity: layer.opacity,
+          visible: layer.visible,
+          locked: layer.locked,
+        })),
+      })),
+    };
+    zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+    zip.file("palette.json", JSON.stringify(doc.palette));
+
+    // one PNG per layer per frame, so raw pixel data round-trips losslessly
+    for (let f = 0; f < doc.frames.length; f++) {
+      const frame = doc.frames[f];
+      for (let l = 0; l < frame.layers.length; l++) {
+        const layer = frame.layers[l];
+        const layerCanvas = document.createElement("canvas");
+        layerCanvas.width = doc.meta.width;
+        layerCanvas.height = doc.meta.height;
+        const ctx = layerCanvas.getContext("2d");
+        const imageData = ctx.createImageData(doc.meta.width, doc.meta.height);
+        imageData.data.set(layer.pixels);
+        ctx.putImageData(imageData, 0, 0);
+
+        const blob = await new Promise((resolve) => layerCanvas.toBlob(resolve, "image/png"));
+        zip.file(`frame-${f}-layer-${l}.png`, blob);
+      }
+    }
+
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(zipBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${doc.meta.name || "pixel-art"}.pxls`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+  const generateThumbnail = () => {
+    const doc = docRef.current;
+    const canvas = renderFrameToCanvas(doc.frames[0], doc.meta.width, doc.meta.height);
+    return canvas.toDataURL("image/png");
+  };
+
+  const saveToLibrary = async () => {
+    const doc = docRef.current;
+    if (!doc) return;
+    const thumbnail = generateThumbnail();
+    await saveProject(doc.meta.id, { name: doc.meta.name, updatedAt: Date.now(), thumbnail }, doc);
+  };
+
+  const openProject = async (id) => {
+    const doc = await loadProjectData(id);
+    docRef.current = doc;
     historyRef.current = new HistoryManager();
-    setLayersState([...saved.frames[0].layers]);
-    setPaletteState([...saved.palette]);
-    setFramesState([...saved.frames]);
+    setLayersState([...doc.frames[0].layers]);
+    setPaletteState([...doc.palette]);
+    setFramesState([...doc.frames]);
     setActiveFrameIndex(0);
     setActiveLayerIndex(0);
     setZoom(10);
     setPan({ x: 0, y: 0 });
     setOnionSkinEnabled(false);
     setIsPlaying(false);
+    setProjectName(doc.meta.name);
     setDocumentReady(true);
   };
+
+  const deleteProjectFromLibrary = async (id) => {
+    await deleteProject(id);
+    setProjectsList((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const renameProjectInLibrary = async (id, newName) => {
+    await renameProjectMeta(id, newName);
+    setProjectsList((prev) => prev.map((p) => (p.id === id ? { ...p, name: newName } : p)));
+  }
+  
 
   const startNewProject = (width, height) => {
     docRef.current = createDocument({ width, height });
@@ -83,27 +290,47 @@ function Editor() {
     setPan({ x: 0, y: 0 });
     setOnionSkinEnabled(false);
     setIsPlaying(false);
+    setProjectName(docRef.current.meta.name);
     setDocumentReady(true);
+    saveToLibrary(); // ADDED — so it shows up in the library right away
   };
-  useEffect(() => {
-    loadAutosave().then((saved) => {
-      if (saved) {
-        pendingAutosaveRef.current = saved;
-        setAutosaveAvailable(true);
-      }
-      setCheckingAutosave(false);
+  
+  const renameProject = (newName) => {
+    docRef.current.meta.name = newName;
+    setProjectName(newName);
+  };
+
+  const renameFrame = (index, newName) => {
+    const doc = docRef.current;
+    doc.frames[index].name = newName;
+    setFramesState([...doc.frames]);
+  };
+
+  const renameLayer = (index, newName) => {
+    const frame = getActiveFrame();
+    frame.layers[index].name = newName;
+    setLayersState([...frame.layers]);
+  };
+
+
+useEffect(() => {
+    listProjects().then((projects) => {
+      setProjectsList(projects);
+      setLibraryLoading(false);
     });
   }, []);
+  
   useEffect(() => {
     if (!documentReady) return;
     const interval = setInterval(() => {
-      if (docRef.current) saveAutosave(docRef.current);
-    }, 8000); // every 8 seconds
+      saveToLibrary(); // CHANGED from saveAutosave(docRef.current)
+    }, 8000);
     return () => clearInterval(interval);
   }, [documentReady]);
-  useEffect(() => {
+
+useEffect(() => {
     const handleBeforeUnload = () => {
-      if (docRef.current) saveAutosave(docRef.current);
+      if (docRef.current) saveToLibrary(); // CHANGED
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
@@ -267,6 +494,7 @@ function Editor() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [draw, activeTool]);
 
+
   // playback loop
   useEffect(() => {
     if (!isPlaying || !docRef.current) {
@@ -316,6 +544,7 @@ function Editor() {
 
     const newFrame = {
       id: crypto.randomUUID(),
+      name: sourceFrame.name, // ADDED
       duration: sourceFrame.duration,
       layers: duplicatedLayers,
     };
@@ -353,7 +582,7 @@ function Editor() {
     const doc = docRef.current;
     const frame = getActiveFrame();
     const newLayer = createLayer(
-      `Layer ${frame.layers.length + 1}`,
+      null, // CHANGED: was `Layer ${frame.layers.length + 1}` — now positional display handles this
       doc.meta.width,
       doc.meta.height,
     );
@@ -496,11 +725,11 @@ function Editor() {
           pixels: new Uint8ClampedArray(pixels),
         });
       }
-      frames.push({ id: crypto.randomUUID(), duration: frameMeta.duration, layers });
+      frames.push({ id: crypto.randomUUID(), name: frameMeta.name, duration: frameMeta.duration, layers });
     }
 
-    const newDoc = {
-      meta: { name: manifest.name, width, height, createdAt: new Date().toISOString() },
+const newDoc = {
+      meta: { id: crypto.randomUUID(), name: manifest.name, width, height, createdAt: new Date().toISOString() },
       palette,
       frames,
     };
@@ -512,184 +741,13 @@ function Editor() {
     setFramesState([...newDoc.frames]);
     setActiveFrameIndex(0);
     setActiveLayerIndex(0);
+    setProjectName(newDoc.meta.name);
     setDocumentReady(true);
+    saveToLibrary(); // ADDED
+  
   };
 
-  // ---- export ----
-  const renderFrameToCanvas = (frame, width, height) => {
-    const exportCanvas = document.createElement("canvas");
-    exportCanvas.width = width;
-    exportCanvas.height = height;
-    const ctx = exportCanvas.getContext("2d");
 
-    for (const layer of frame.layers) {
-      if (!layer.visible) continue;
-
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const index = (y * width + x) * 4;
-          const a = layer.pixels[index + 3];
-          if (a > 0) {
-            const r = layer.pixels[index];
-            const g = layer.pixels[index + 1];
-            const b = layer.pixels[index + 2];
-            const effectiveAlpha = (a / 255) * layer.opacity;
-            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${effectiveAlpha})`;
-            ctx.fillRect(x, y, 1, 1);
-          }
-        }
-      }
-    }
-
-    return exportCanvas;
-  };
-
-  const exportPNG = () => {
-    const doc = docRef.current;
-    const frame = getActiveFrame();
-    const exportCanvas = renderFrameToCanvas(frame, doc.meta.width, doc.meta.height);
-
-    exportCanvas.toBlob((blob) => {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${doc.meta.name || "pixel-art"}.png`;
-      link.click();
-      URL.revokeObjectURL(url);
-    }, "image/png");
-  };
-  const exportSpriteSheet = () => {
-    const doc = docRef.current;
-    const frameWidth = doc.meta.width;
-    const frameHeight = doc.meta.height;
-    const frameCount = doc.frames.length;
-
-    // lay frames out in a single horizontal row — simplest, most universally
-    // compatible layout; a grid layout is a nice future enhancement
-    const sheetCanvas = document.createElement("canvas");
-    sheetCanvas.width = frameWidth * frameCount;
-    sheetCanvas.height = frameHeight;
-    const sheetCtx = sheetCanvas.getContext("2d");
-
-    doc.frames.forEach((frame, index) => {
-      const frameCanvas = renderFrameToCanvas(frame, frameWidth, frameHeight);
-      sheetCtx.drawImage(frameCanvas, index * frameWidth, 0);
-    });
-
-    sheetCanvas.toBlob((blob) => {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${doc.meta.name || "pixel-art"}-spritesheet.png`;
-      link.click();
-      URL.revokeObjectURL(url);
-    }, "image/png");
-  };
-  const exportGIF = () => {
-    const doc = docRef.current;
-
-    // eslint-disable-next-line no-undef
-    const gif = new GIF({
-      workers: 2,
-      quality: 10,
-      width: doc.meta.width,
-      height: doc.meta.height,
-      workerScript: "/gif.worker.js",
-    });
-
-    doc.frames.forEach((frame) => {
-      const frameCanvas = renderFrameToCanvas(frame, doc.meta.width, doc.meta.height);
-      gif.addFrame(frameCanvas, { delay: frame.duration });
-    });
-
-    gif.on("finished", (blob) => {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${doc.meta.name || "pixel-art"}.gif`;
-      link.click();
-      URL.revokeObjectURL(url);
-    });
-
-    gif.render();
-  };
-
-  const exportAPNG = () => {
-    const doc = docRef.current;
-    const width = doc.meta.width;
-    const height = doc.meta.height;
-
-    // UPNG needs raw ArrayBuffers of RGBA pixel data, one per frame
-    const frameBuffers = doc.frames.map((frame) => {
-      const frameCanvas = renderFrameToCanvas(frame, width, height);
-      const ctx = frameCanvas.getContext("2d");
-      const imageData = ctx.getImageData(0, 0, width, height);
-      return imageData.data.buffer;
-    });
-
-    const delays = doc.frames.map((frame) => frame.duration);
-
-    // UPNG.encode(buffers, width, height, colorDepth, delays)
-    // colorDepth of 0 = lossless, preserves full alpha
-    const apngBuffer = UPNG.encode(frameBuffers, width, height, 0, delays);
-    const blob = new Blob([apngBuffer], { type: "image/png" });
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${doc.meta.name || "pixel-art"}.png`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const exportProjectFile = async () => {
-    const doc = docRef.current;
-    const zip = new JSZip();
-
-    const manifest = {
-      name: doc.meta.name,
-      width: doc.meta.width,
-      height: doc.meta.height,
-      frameCount: doc.frames.length,
-      frames: doc.frames.map((frame) => ({
-        duration: frame.duration,
-        layers: frame.layers.map((layer) => ({
-          name: layer.name,
-          opacity: layer.opacity,
-          visible: layer.visible,
-          locked: layer.locked,
-        })),
-      })),
-    };
-    zip.file("manifest.json", JSON.stringify(manifest, null, 2));
-    zip.file("palette.json", JSON.stringify(doc.palette));
-
-    // one PNG per layer per frame, so raw pixel data round-trips losslessly
-    for (let f = 0; f < doc.frames.length; f++) {
-      const frame = doc.frames[f];
-      for (let l = 0; l < frame.layers.length; l++) {
-        const layer = frame.layers[l];
-        const layerCanvas = document.createElement("canvas");
-        layerCanvas.width = doc.meta.width;
-        layerCanvas.height = doc.meta.height;
-        const ctx = layerCanvas.getContext("2d");
-        const imageData = ctx.createImageData(doc.meta.width, doc.meta.height);
-        imageData.data.set(layer.pixels);
-        ctx.putImageData(imageData, 0, 0);
-
-        const blob = await new Promise((resolve) => layerCanvas.toBlob(resolve, "image/png"));
-        zip.file(`frame-${f}-layer-${l}.png`, blob);
-      }
-    }
-
-    const zipBlob = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(zipBlob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${doc.meta.name || "pixel-art"}.pxls`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
   // ---- drawing / tools ----
   const screenToGrid = (clientX, clientY) => {
     const canvas = canvasRef.current;
@@ -1013,29 +1071,33 @@ function Editor() {
 
   
 
-if (checkingAutosave) {
+if (libraryLoading) {
     return <div style={{ padding: "24px" }}>Loading...</div>;
   }
 
   if (!documentReady) {
     return (
-      <div>
-        {autosaveAvailable && (
-          <div style={{ padding: "16px", border: "1px solid #999", marginBottom: "16px", maxWidth: "320px" }}>
-            <p>We found a previous session.</p>
-            <button onClick={resumeAutosave}>Resume Previous Project</button>
-          </div>
-        )}
+      <div style={{ padding: "24px" }}>
+        <ProjectLibrary
+          projects={projectsList}
+          onOpen={openProject}
+          onDelete={deleteProjectFromLibrary}
+          onRename={renameProjectInLibrary}
+        />
         <NewProjectDialog onCreate={startNewProject} />
       </div>
     );
   }
-
   return (
     <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-      <div>
+<div>
+        <InlineEditableName
+          value={projectName}
+          placeholder="Untitled Project"
+          onChange={renameProject}
+        />
         <button onClick={exportPNG} style={{ marginBottom: "8px", display: "block" }}>
-          Export PNG
+         Export PNG
         </button>
         <button onClick={exportSpriteSheet} style={{ marginBottom: "8px", display: "block" }}>
           Export Sprite Sheet
@@ -1073,6 +1135,7 @@ if (checkingAutosave) {
           onChange={(e) => setActiveColor(hexToRgba(e.target.value))}
           style={{ marginBottom: "8px", display: "block" }}
         />
+       <Toolbar activeTool={activeTool} onSelectTool={setActiveTool} />
         <CanvasViewport
           canvasRef={canvasRef}
           onWheel={handleWheel}
@@ -1090,6 +1153,7 @@ if (checkingAutosave) {
         onDeleteLayer={deleteLayer}
         onToggleVisibility={toggleLayerVisibility}
         onSetOpacity={setLayerOpacity}
+        onRenameLayer={renameLayer}
       />
 
       <PalettePanel
@@ -1106,6 +1170,7 @@ if (checkingAutosave) {
         onAddFrame={addFrame}
         onDuplicateFrame={duplicateFrame}
         onDeleteFrame={deleteFrame}
+        onRenameFrame={renameFrame}
         onionSkinEnabled={onionSkinEnabled}
         onToggleOnionSkin={setOnionSkinEnabled}
         isPlaying={isPlaying}
