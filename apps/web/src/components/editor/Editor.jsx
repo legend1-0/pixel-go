@@ -202,7 +202,8 @@ const exportAPNG = () => {
     const doc = docRef.current;
     const zip = new JSZip();
 
-    const manifest = {
+const manifest = {
+      schemaVersion: 1, // ADDED — bump this whenever manifest.json's shape changes
       name: doc.meta.name,
       width: doc.meta.width,
       height: doc.meta.height,
@@ -702,6 +703,14 @@ useEffect(() => {
     const zip = await JSZip.loadAsync(file);
     const manifestText = await zip.file("manifest.json").async("string");
     const manifest = JSON.parse(manifestText);
+
+    // ADDED — schema version handling
+    const schemaVersion = manifest.schemaVersion ?? 0; // files exported before this existed are treated as version 0
+    if (schemaVersion > 1) {
+      alert(
+        "This project file was created with a newer version of Pixel Art Studio and may not import correctly.",
+      );
+    }
     const paletteText = await zip.file("palette.json").async("string");
     const palette = JSON.parse(paletteText);
 
