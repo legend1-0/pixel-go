@@ -47,6 +47,8 @@ function Editor() {
   const [projectName, setProjectName] = useState("");
   const [libraryLoading, setLibraryLoading] = useState(true);
   const [projectsList, setProjectsList] = useState([]);
+  const [exportScale, setExportScale] = useState(8);
+  
   const isDragging = useRef(false);
   const isDrawing = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
@@ -62,11 +64,11 @@ function Editor() {
 
 
   // ---- export ----
-  const renderFrameToCanvas = (frame, width, height) => {
-    const exportCanvas = document.createElement("canvas");
-    exportCanvas.width = width;
-    exportCanvas.height = height;
-    const ctx = exportCanvas.getContext("2d");
+const renderFrameToCanvas = (frame, width, height, scale = 1) => {
+    const nativeCanvas = document.createElement("canvas");
+    nativeCanvas.width = width;
+    nativeCanvas.height = height;
+    const ctx = nativeCanvas.getContext("2d");
 
     for (const layer of frame.layers) {
       if (!layer.visible) continue;
@@ -87,14 +89,22 @@ function Editor() {
       }
     }
 
-    return exportCanvas;
+    if (scale === 1) return nativeCanvas;
+
+    const scaledCanvas = document.createElement("canvas");
+    scaledCanvas.width = width * scale;
+    scaledCanvas.height = height * scale;
+    const scaledCtx = scaledCanvas.getContext("2d");
+    scaledCtx.imageSmoothingEnabled = false;
+    scaledCtx.drawImage(nativeCanvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+
+    return scaledCanvas;
   };
 
   const exportPNG = () => {
     const doc = docRef.current;
     const frame = getActiveFrame();
-    const exportCanvas = renderFrameToCanvas(frame, doc.meta.width, doc.meta.height);
-
+const exportCanvas = renderFrameToCanvas(frame, doc.meta.width, doc.meta.height, exportScale);
     exportCanvas.toBlob((blob) => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -112,14 +122,15 @@ function Editor() {
 
     // lay frames out in a single horizontal row — simplest, most universally
     // compatible layout; a grid layout is a nice future enhancement
-    const sheetCanvas = document.createElement("canvas");
-    sheetCanvas.width = frameWidth * frameCount;
-    sheetCanvas.height = frameHeight;
+const sheetCanvas = document.createElement("canvas");
+    sheetCanvas.width = frameWidth * frameCount * exportScale;
+    sheetCanvas.height = frameHeight * exportScale;
     const sheetCtx = sheetCanvas.getContext("2d");
+    sheetCtx.imageSmoothingEnabled = false;
 
     doc.frames.forEach((frame, index) => {
-      const frameCanvas = renderFrameToCanvas(frame, frameWidth, frameHeight);
-      sheetCtx.drawImage(frameCanvas, index * frameWidth, 0);
+      const frameCanvas = renderFrameToCanvas(frame, frameWidth, frameHeight, exportScale);
+      sheetCtx.drawImage(frameCanvas, index * frameWidth * exportScale, 0);
     });
 
     sheetCanvas.toBlob((blob) => {
@@ -138,13 +149,13 @@ function Editor() {
     const gif = new GIF({
       workers: 2,
       quality: 10,
-      width: doc.meta.width,
-      height: doc.meta.height,
+      width: doc.meta.width * exportScale,
+      height: doc.meta.height * exportScale,
       workerScript: "/gif.worker.js",
     });
 
     doc.frames.forEach((frame) => {
-      const frameCanvas = renderFrameToCanvas(frame, doc.meta.width, doc.meta.height);
+      const frameCanvas = renderFrameToCanvas(frame, doc.meta.width, doc.meta.height, exportScale);
       gif.addFrame(frameCanvas, { delay: frame.duration });
     });
 
@@ -160,14 +171,13 @@ function Editor() {
     gif.render();
   };
 
-  const exportAPNG = () => {
+const exportAPNG = () => {
     const doc = docRef.current;
-    const width = doc.meta.width;
-    const height = doc.meta.height;
+    const width = doc.meta.width * exportScale;
+    const height = doc.meta.height * exportScale;
 
-    // UPNG needs raw ArrayBuffers of RGBA pixel data, one per frame
     const frameBuffers = doc.frames.map((frame) => {
-      const frameCanvas = renderFrameToCanvas(frame, width, height);
+      const frameCanvas = renderFrameToCanvas(frame, doc.meta.width, doc.meta.height, exportScale);
       const ctx = frameCanvas.getContext("2d");
       const imageData = ctx.getImageData(0, 0, width, height);
       return imageData.data.buffer;
@@ -237,9 +247,9 @@ function Editor() {
     link.click();
     URL.revokeObjectURL(url);
   };
-  const generateThumbnail = () => {
+const generateThumbnail = () => {
     const doc = docRef.current;
-    const canvas = renderFrameToCanvas(doc.frames[0], doc.meta.width, doc.meta.height);
+    const canvas = renderFrameToCanvas(doc.frames[0], doc.meta.width, doc.meta.height); // no scale arg = defaults to 1
     return canvas.toDataURL("image/png");
   };
 
@@ -276,7 +286,7 @@ function Editor() {
     await renameProjectMeta(id, newName);
     setProjectsList((prev) => prev.map((p) => (p.id === id ? { ...p, name: newName } : p)));
   }
-  
+
 
   const startNewProject = (width, height) => {
     docRef.current = createDocument({ width, height });
@@ -1096,6 +1106,16 @@ if (libraryLoading) {
           placeholder="Untitled Project"
           onChange={renameProject}
         />
+        <label style={{ display: "block", marginBottom: "8px" }}>
+          Export Scale:
+          <select value={exportScale} onChange={(e) => setExportScale(parseInt(e.target.value, 10))}>
+            <option value={1}>1x (native)</option>
+            <option value={4}>4x</option>
+            <option value={8}>8x</option>
+            <option value={16}>16x</option>
+          </select>
+        </label>
+
         <button onClick={exportPNG} style={{ marginBottom: "8px", display: "block" }}>
          Export PNG
         </button>
