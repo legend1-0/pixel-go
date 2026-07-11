@@ -1,39 +1,56 @@
 // apps/web/src/components/project-library/ProjectLibrary.jsx
 import InlineEditableName from "../shared/InlineEditableName";
+import "./ProjectLibrary.css";
+import { Orbit } from "lucide-react";
 
-function ProjectLibrary({ projects, onOpen, onDelete, onRename }) {
-  if (projects.length === 0) return null;
-
+function ProjectLibrary({ projects, onOpen, onDelete, onRename, onNewProject }) {
   return (
-    <div>
-      <h2>Your Projects</h2>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", marginBottom: "24px" }}>
-        {projects.map((project) => (
-          <div key={project.id} style={{ border: "1px solid #ccc", padding: "8px", width: "140px" }}>
-            <img
-              src={project.thumbnail}
-              alt={project.name}
-              onClick={() => onOpen(project.id)}
-              style={{
-                width: "100%",
-                height: "100px",
-                objectFit: "contain",
-                imageRendering: "pixelated",
-                background: "#f0f0f0",
-                cursor: "pointer",
-              }}
-            />
-            <InlineEditableName
-              value={project.name}
-              placeholder="Untitled"
-              onChange={(newName) => onRename(project.id, newName)}
-            />
-            <button onClick={() => onDelete(project.id)} style={{ display: "block", marginTop: "4px" }}>
-              Delete
-            </button>
-          </div>
-        ))}
+    <div className="ProjectLibrary">
+      <div className="ProjectLibrary-header">
+        <div className="ProjectLibrary-title">
+          <h2>Working...</h2>
+          <p>
+            Continue from where you last stopped.
+            <br />
+            Everything stays on your browser.
+          </p>
+        </div>
+
+        <button className="ProjectLibrary-new-btn" onClick={onNewProject}>
+          New Project
+        </button>
       </div>
+
+      {projects.length === 0 ? (
+        <p style={{ color: "#999", marginTop: "24px" }}>
+          No projects yet — click "New Project" to create your first one.
+        </p>
+      ) : (
+        <div className="Project-grid">
+          {projects.map((project) => (
+            <div key={project.id} className="Project-Thumbnail-div">
+              <Orbit />
+
+              <img
+                className="Project-thumbnail-image"
+                src={project.thumbnail}
+                alt={project.name}
+                onClick={() => onOpen(project.id)}
+              />
+
+              <InlineEditableName
+                value={project.name}
+                placeholder="Untitled"
+                onChange={(newName) => onRename(project.id, newName)}
+              />
+
+              <button className="Project-delete-btn" onClick={() => onDelete(project.id)}>
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

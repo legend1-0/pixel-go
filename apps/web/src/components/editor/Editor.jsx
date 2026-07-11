@@ -23,8 +23,7 @@ import ProjectLibrary from "../project-library/ProjectLibrary";
 import NewProjectDialog from "../new-project/NewProjectDialog";
 import InlineEditableName from "../shared/InlineEditableName";
 import { saveProject, listProjects, loadProjectData, renameProjectMeta, deleteProject } from "../../storage/projectStorage";
-
-
+import { useParams, useNavigate } from "react-router";
 
 function Editor() {
   const canvasRef = useRef(null);
@@ -56,12 +55,16 @@ function Editor() {
   const circleCenter = useRef(null);
   const rectStart = useRef(null);
   const playbackTimeoutRef = useRef(null);
-
+  const { projectId } = useParams();
+  const navigate = useNavigate();
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const getActiveFrame = () => docRef.current.frames[activeFrameIndex];
   const getActiveLayer = () => getActiveFrame().layers[activeLayerIndex];
   const getActiveColor = () =>
     activeTool === "eraser" ? [0, 0, 0, 0] : activeColor;
 
+
+  
 
   // ---- export ----
 const renderFrameToCanvas = (frame, width, height, scale = 1) => {
@@ -261,8 +264,13 @@ const generateThumbnail = () => {
     await saveProject(doc.meta.id, { name: doc.meta.name, updatedAt: Date.now(), thumbnail }, doc);
   };
 
-  const openProject = async (id) => {
+const openProject = async (id) => {
     const doc = await loadProjectData(id);
+    if (!doc) {
+      alert("Project not found.");
+      navigate("/projects");
+      return;
+    }
     docRef.current = doc;
     historyRef.current = new HistoryManager();
     setLayersState([...doc.frames[0].layers]);
@@ -276,6 +284,7 @@ const generateThumbnail = () => {
     setIsPlaying(false);
     setProjectName(doc.meta.name);
     setDocumentReady(true);
+    navigate(`/editor/${id}`); // ADDED — ensures the URL always matches the open project
   };
 
   const deleteProjectFromLibrary = async (id) => {
@@ -289,7 +298,7 @@ const generateThumbnail = () => {
   }
 
 
-  const startNewProject = (width, height) => {
+const startNewProject = (width, height) => {
     docRef.current = createDocument({ width, height });
     historyRef.current = new HistoryManager();
     setLayersState([...docRef.current.frames[0].layers]);
@@ -303,7 +312,9 @@ const generateThumbnail = () => {
     setIsPlaying(false);
     setProjectName(docRef.current.meta.name);
     setDocumentReady(true);
-    saveToLibrary(); // ADDED — so it shows up in the library right away
+    saveToLibrary();
+    navigate(`/editor/${docRef.current.meta.id}`); // ADDED
+    setShowNewProjectModal(false); // ADDED
   };
   
   const renameProject = (newName) => {
@@ -323,6 +334,15 @@ const generateThumbnail = () => {
     setLayersState([...frame.layers]);
   };
 
+useEffect(() => {
+    if (projectId && (!docRef.current || docRef.current.meta.id !== projectId)) {
+      openProject(projectId);
+    }
+    if (!projectId && documentReady) {
+      setDocumentReady(false);
+      docRef.current = null;
+    }
+  }, [projectId]);
 
 useEffect(() => {
     listProjects().then((projects) => {
@@ -763,6 +783,8 @@ const newDoc = {
     setProjectName(newDoc.meta.name);
     setDocumentReady(true);
     saveToLibrary(); // ADDED
+    navigate(`/editor/${newDoc.meta.id}`); // ADDED
+
   
   };
 
@@ -1095,6 +1117,10 @@ if (libraryLoading) {
   }
 
   if (!documentReady) {
+    if (projectId) {
+      return <div style={{ padding: "24px" }}>Opening project...</div>;
+    }
+
     return (
       <div style={{ padding: "24px" }}>
         <ProjectLibrary
@@ -1102,19 +1128,62 @@ if (libraryLoading) {
           onOpen={openProject}
           onDelete={deleteProjectFromLibrary}
           onRename={renameProjectInLibrary}
+          onNewProject={() => setShowNewProjectModal(true)}
         />
-        <NewProjectDialog onCreate={startNewProject} />
+
+        {showNewProjectModal && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0,0,0,0.4)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onClick={() => setShowNewProjectModal(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: "white", borderRadius: "12px", position: "relative" }}
+            >
+              <button
+                onClick={() => setShowNewProjectModal(false)}
+                style={{ position: "absolute", top: "8px", right: "8px" }}
+              >
+                ✕
+              </button>
+              <NewProjectDialog onCreate={startNewProject} />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
   return (
     <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
 <div>
+        <div>
         <InlineEditableName
           value={projectName}
           placeholder="Untitled Project"
           onChange={renameProject}
         />
+        <button
+          onClick={() => {
+            docRef.current = null;
+            setDocumentReady(false);
+            navigate("/projects");
+          }}
+          style={{ marginBottom: "8px", display: "block" }}
+        >
+          ← Back to Projects
+        </button>
+
+        </div>
         <label style={{ display: "block", marginBottom: "8px" }}>
           Export Scale:
           <select value={exportScale} onChange={(e) => setExportScale(parseInt(e.target.value, 10))}>

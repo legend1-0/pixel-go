@@ -49,7 +49,7 @@ export default function HeroContainer() {
           </p>
           <button className={styles.ctaButton}>
             <span className={styles.btnText}>
-              <NavLink to="/editor" end>
+              <NavLink to="/projects" end>
                 Launch Studio
               </NavLink>
             </span>

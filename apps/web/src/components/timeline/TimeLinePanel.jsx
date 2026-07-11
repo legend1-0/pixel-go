@@ -16,11 +16,10 @@ function TimelinePanel({
 }) {
   return (
     <div style={{ width: "250px" }}>
-      <p style={{ color: "red", fontWeight: "bold" }}>DEBUG MARKER 12345</p>
       <button onClick={onAddFrame}>+ Add Frame</button>
       <button onClick={onTogglePlay} style={{ marginLeft: "6px" }}>
         {isPlaying ? "⏸ Pause" : "▶ Play"}
-      </button>
+       </button>
       <label style={{ display: "block", marginTop: "6px" }}>
         <input
           type="checkbox"
