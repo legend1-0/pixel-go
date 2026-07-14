@@ -1,5 +1,5 @@
 // apps/web/src/components/image-import/ImageImportWizard.jsx
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { runImagePipeline } from "@pixel-art-studio/media-pipeline";
 
 /**
@@ -12,6 +12,9 @@ function ImageImportWizard({ canvasWidth, canvasHeight, onConvert, onCancel }) {
   const [brightness, setBrightness] = useState(0);
   const [contrast, setContrast] = useState(0);
   const [saturation, setSaturation] = useState(0);
+  const [colorCount, setColorCount] = useState(0); // 0 = no quantization
+  const [dither, setDither] = useState("none");
+
   const previewCanvasRef = useRef(null);
 
   const handleFileSelect = (file) => {
@@ -24,47 +27,68 @@ function ImageImportWizard({ canvasWidth, canvasHeight, onConvert, onCancel }) {
       const ctx = tempCanvas.getContext("2d");
       ctx.drawImage(img, 0, 0);
       const imageData = ctx.getImageData(0, 0, img.width, img.height);
-      setSourceImage({ pixels: imageData.data, width: img.width, height: img.height });
+      setSourceImage({
+        pixels: imageData.data,
+        width: img.width,
+        height: img.height,
+      });
       URL.revokeObjectURL(url);
     };
     img.src = url;
   };
 
+  const pipelineResult = useMemo(() => {
+    if (!sourceImage) return null;
+    return runImagePipeline(
+      sourceImage.pixels,
+      sourceImage.width,
+      sourceImage.height,
+      {
+        outputWidth: canvasWidth,
+        outputHeight: canvasHeight,
+        brightness,
+        contrast,
+        saturation,
+        colorCount,
+        dither,
+      },
+    );
+  }, [
+    sourceImage,
+    canvasWidth,
+    canvasHeight,
+    brightness,
+    contrast,
+    saturation,
+    colorCount,
+    dither,
+  ]);
+
   useEffect(() => {
-    if (!sourceImage) return;
-
-    const result = runImagePipeline(sourceImage.pixels, sourceImage.width, sourceImage.height, {
-      outputWidth: canvasWidth,
-      outputHeight: canvasHeight,
-      brightness,
-      contrast,
-      saturation,
-    });
-
+    if (!pipelineResult) return;
     const canvas = previewCanvasRef.current;
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
     const ctx = canvas.getContext("2d");
-    const imageData = new ImageData(new Uint8ClampedArray(result), canvasWidth, canvasHeight);
+    const imageData = new ImageData(
+      new Uint8ClampedArray(pipelineResult.pixels),
+      canvasWidth,
+      canvasHeight,
+    );
     ctx.putImageData(imageData, 0, 0);
-  }, [sourceImage, canvasWidth, canvasHeight, brightness, contrast, saturation]);
+  }, [pipelineResult, canvasWidth, canvasHeight]);
 
   const handleConvert = () => {
-    const result = runImagePipeline(sourceImage.pixels, sourceImage.width, sourceImage.height, {
-      outputWidth: canvasWidth,
-      outputHeight: canvasHeight,
-      brightness,
-      contrast,
-      saturation,
-    });
-    onConvert(new Uint8ClampedArray(result));
+    if (!pipelineResult) return;
+    onConvert(new Uint8ClampedArray(pipelineResult.pixels));
   };
 
   return (
     <div style={{ padding: "24px", maxWidth: "420px" }}>
       <h2>Import Image</h2>
       <p style={{ color: "#666", fontSize: "14px" }}>
-        Output size is locked to your current canvas: {canvasWidth}×{canvasHeight}
+        Output size is locked to your current canvas: {canvasWidth}×
+        {canvasHeight}
       </p>
 
       {!sourceImage ? (
@@ -120,12 +144,65 @@ function ImageImportWizard({ canvasWidth, canvasHeight, onConvert, onCancel }) {
               onChange={(e) => setSaturation(parseInt(e.target.value, 10))}
             />
           </label>
+          <label style={{ display: "block", marginBottom: "8px" }}>
+            Colors (0 = off):{" "}
+            <input
+              type="number"
+              min="0"
+              max="64"
+              value={colorCount}
+              onChange={(e) => {
+                const value = parseInt(e.target.value, 10) || 0;
+                setColorCount(Math.min(64, Math.max(0, value)));
+              }}
+              style={{ width: "70px" }}
+            />
+          </label>
 
+          {colorCount > 0 && (
+            <label style={{ display: "block", marginBottom: "12px" }}>
+              Dithering:{" "}
+              <select
+                value={dither}
+                onChange={(e) => setDither(e.target.value)}
+              >
+                <option value="none">None</option>
+                <option value="floyd-steinberg">Floyd-Steinberg</option>
+                <option value="ordered">Ordered (Bayer)</option>
+              </select>
+            </label>
+          )}
+
+          {pipelineResult?.palette && (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "4px",
+                marginBottom: "12px",
+              }}
+            >
+              {pipelineResult.palette.map((color, i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: "20px",
+                    height: "20px",
+                    backgroundColor: `rgb(${color[0]}, ${color[1]}, ${color[2]})`,
+                    border: "1px solid #999",
+                  }}
+                />
+              ))}
+            </div>
+          )}
           <button onClick={handleConvert}>Convert &amp; Add as Layer</button>
         </>
       )}
 
-      <button onClick={onCancel} style={{ marginTop: "12px", display: "block" }}>
+      <button
+        onClick={onCancel}
+        style={{ marginTop: "12px", display: "block" }}
+      >
         Cancel
       </button>
     </div>

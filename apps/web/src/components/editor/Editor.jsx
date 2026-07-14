@@ -49,7 +49,9 @@ function Editor() {
   const [projectsList, setProjectsList] = useState([]);
   const [exportScale, setExportScale] = useState(8);
   const [showImageImportWizard, setShowImageImportWizard] = useState(false);
-const [docSize, setDocSize] = useState({ width: 0, height: 0 }); // ADD THIS
+  const [docSize, setDocSize] = useState({ width: 0, height: 0 }); // ADD THIS
+  
+  
   const isDragging = useRef(false);
   const isDrawing = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
