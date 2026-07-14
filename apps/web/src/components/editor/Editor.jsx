@@ -24,6 +24,7 @@ import NewProjectDialog from "../new-project/NewProjectDialog";
 import InlineEditableName from "../shared/InlineEditableName";
 import { saveProject, listProjects, loadProjectData, renameProjectMeta, deleteProject } from "../../storage/projectStorage";
 import { useParams, useNavigate } from "react-router";
+import ImageImportWizard from "../image-import/ImageImportWizard";
 
 function Editor() {
   const canvasRef = useRef(null);
@@ -47,7 +48,8 @@ function Editor() {
   const [libraryLoading, setLibraryLoading] = useState(true);
   const [projectsList, setProjectsList] = useState([]);
   const [exportScale, setExportScale] = useState(8);
-  
+  const [showImageImportWizard, setShowImageImportWizard] = useState(false);
+const [docSize, setDocSize] = useState({ width: 0, height: 0 }); // ADD THIS
   const isDragging = useRef(false);
   const isDrawing = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
@@ -57,6 +59,7 @@ function Editor() {
   const playbackTimeoutRef = useRef(null);
   const { projectId } = useParams();
   const navigate = useNavigate();
+
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const getActiveFrame = () => docRef.current.frames[activeFrameIndex];
   const getActiveLayer = () => getActiveFrame().layers[activeLayerIndex];
@@ -283,7 +286,9 @@ const openProject = async (id) => {
     setOnionSkinEnabled(false);
     setIsPlaying(false);
     setProjectName(doc.meta.name);
+setDocSize({ width: doc.meta.width, height: doc.meta.height }); // ADD THIS
     setDocumentReady(true);
+
     navigate(`/editor/${id}`); // ADDED — ensures the URL always matches the open project
   };
 
@@ -312,6 +317,7 @@ const startNewProject = (width, height) => {
     setIsPlaying(false);
     setProjectName(docRef.current.meta.name);
     setDocumentReady(true);
+    setDocSize({ width: docRef.current.meta.width, height: docRef.current.meta.height }); // ADD THIS
     saveToLibrary();
     navigate(`/editor/${docRef.current.meta.id}`); // ADDED
     setShowNewProjectModal(false); // ADDED
@@ -332,6 +338,18 @@ const startNewProject = (width, height) => {
     const frame = getActiveFrame();
     frame.layers[index].name = newName;
     setLayersState([...frame.layers]);
+  };
+
+  const handleImageConvert = (pixels) => {
+    const doc = docRef.current;
+    const frame = getActiveFrame();
+    const newLayer = createLayer(null, doc.meta.width, doc.meta.height);
+    newLayer.pixels.set(pixels);
+    frame.layers.push(newLayer);
+    setActiveLayerIndex(frame.layers.length - 1);
+    setLayersState([...frame.layers]);
+    draw();
+    setShowImageImportWizard(false);
   };
 
 useEffect(() => {
@@ -782,6 +800,7 @@ const newDoc = {
     setActiveLayerIndex(0);
     setProjectName(newDoc.meta.name);
     setDocumentReady(true);
+    setDocSize({ width: newDoc.meta.width, height: newDoc.meta.height }); // ADD THIS
     saveToLibrary(); // ADDED
     navigate(`/editor/${newDoc.meta.id}`); // ADDED
 
@@ -1131,6 +1150,7 @@ if (libraryLoading) {
           onNewProject={() => setShowNewProjectModal(true)}
         />
 
+      
         {showNewProjectModal && (
           <div
             style={{
@@ -1166,6 +1186,34 @@ if (libraryLoading) {
   return (
     <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
 <div>
+              {showImageImportWizard && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onClick={() => setShowImageImportWizard(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "white", borderRadius: "12px" }}
+          >
+<ImageImportWizard
+  canvasWidth={docSize.width}
+  canvasHeight={docSize.height}
+  onConvert={handleImageConvert}
+  onCancel={() => setShowImageImportWizard(false)}
+/>
+          </div>
+        </div>
+      )}
         <div>
         <InlineEditableName
           value={projectName}
@@ -1208,6 +1256,9 @@ if (libraryLoading) {
         </button>
         <button onClick={exportProjectFile} style={{ marginBottom: "8px", display: "block" }}>
           Export Project File (.pxls)
+        </button>
+        <button onClick={() => setShowImageImportWizard(true)} style={{ marginBottom: "8px", display: "block" }}>
+          Import Image (Convert to Pixel Art)
         </button>
         <input
           type="file"
