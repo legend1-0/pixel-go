@@ -25,6 +25,7 @@ import InlineEditableName from "../shared/InlineEditableName";
 import { saveProject, listProjects, loadProjectData, renameProjectMeta, deleteProject } from "../../storage/projectStorage";
 import { useParams, useNavigate } from "react-router";
 import ImageImportWizard from "../image-import/ImageImportWizard";
+import VideoImportWizard from "../video-import/VideoImportWizard";
 
 function Editor() {
   const canvasRef = useRef(null);
@@ -50,7 +51,8 @@ function Editor() {
   const [exportScale, setExportScale] = useState(8);
   const [showImageImportWizard, setShowImageImportWizard] = useState(false);
   const [docSize, setDocSize] = useState({ width: 0, height: 0 }); // ADD THIS
-  
+  const [showVideoImportWizard, setShowVideoImportWizard] = useState(false);
+
   
   const isDragging = useRef(false);
   const isDrawing = useRef(false);
@@ -375,6 +377,36 @@ const handleImageConvert = (pixels, width, height, destination) => {
       draw();
       setShowImageImportWizard(false);
     }
+  };
+
+  const handleVideoConvert = (framesPixelArrays, width, height, frameDurationMs) => {
+    const newDoc = createDocument({ width, height });
+
+    // replace the default single frame with one real frame per extracted video frame
+    newDoc.frames = framesPixelArrays.map((pixels) => {
+      const frame = createFrame(width, height);
+      frame.duration = frameDurationMs;
+      frame.layers[0].pixels.set(pixels);
+      return frame;
+    });
+
+    docRef.current = newDoc;
+    historyRef.current = new HistoryManager();
+    setLayersState([...newDoc.frames[0].layers]);
+    setPaletteState([...newDoc.palette]);
+    setFramesState([...newDoc.frames]);
+    setActiveFrameIndex(0);
+    setActiveLayerIndex(0);
+    setZoom(10);
+    setPan({ x: 0, y: 0 });
+    setOnionSkinEnabled(false);
+    setIsPlaying(false);
+    setProjectName(newDoc.meta.name);
+    setDocSize({ width: newDoc.meta.width, height: newDoc.meta.height });
+    setDocumentReady(true);
+    saveToLibrary();
+    navigate(`/editor/${newDoc.meta.id}`);
+    setShowVideoImportWizard(false);
   };
 
 useEffect(() => {
@@ -1239,6 +1271,26 @@ if (libraryLoading) {
           </div>
         </div>
       )}
+      {showVideoImportWizard && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onClick={() => setShowVideoImportWizard(false)}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "white", borderRadius: "12px" }}>
+            <VideoImportWizard onConvert={handleVideoConvert} onCancel={() => setShowVideoImportWizard(false)} />
+          </div>
+        </div>
+      )}
         <div>
         <InlineEditableName
           value={projectName}
@@ -1284,6 +1336,9 @@ if (libraryLoading) {
         </button>
         <button onClick={() => setShowImageImportWizard(true)} style={{ marginBottom: "8px", display: "block" }}>
           Import Image (Convert to Pixel Art)
+        </button>
+        <button onClick={() => setShowVideoImportWizard(true)} style={{ marginBottom: "8px", display: "block" }}>
+          Import Video (Convert to Animation)
         </button>
         <input
           type="file"
