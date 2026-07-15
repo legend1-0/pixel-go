@@ -342,16 +342,39 @@ const startNewProject = (width, height) => {
     setLayersState([...frame.layers]);
   };
 
-  const handleImageConvert = (pixels) => {
-    const doc = docRef.current;
-    const frame = getActiveFrame();
-    const newLayer = createLayer(null, doc.meta.width, doc.meta.height);
-    newLayer.pixels.set(pixels);
-    frame.layers.push(newLayer);
-    setActiveLayerIndex(frame.layers.length - 1);
-    setLayersState([...frame.layers]);
-    draw();
-    setShowImageImportWizard(false);
+const handleImageConvert = (pixels, width, height, destination) => {
+    if (destination === "new-project") {
+      const newDoc = createDocument({ width, height });
+      newDoc.frames[0].layers[0].pixels.set(pixels);
+
+      docRef.current = newDoc;
+      historyRef.current = new HistoryManager();
+      setLayersState([...newDoc.frames[0].layers]);
+      setPaletteState([...newDoc.palette]);
+      setFramesState([...newDoc.frames]);
+      setActiveFrameIndex(0);
+      setActiveLayerIndex(0);
+      setZoom(10);
+      setPan({ x: 0, y: 0 });
+      setOnionSkinEnabled(false);
+      setIsPlaying(false);
+      setProjectName(newDoc.meta.name);
+      setDocSize({ width: newDoc.meta.width, height: newDoc.meta.height });
+      setDocumentReady(true);
+      saveToLibrary();
+      navigate(`/editor/${newDoc.meta.id}`);
+      setShowImageImportWizard(false);
+    } else {
+      const doc = docRef.current;
+      const frame = getActiveFrame();
+      const newLayer = createLayer(null, doc.meta.width, doc.meta.height);
+      newLayer.pixels.set(pixels);
+      frame.layers.push(newLayer);
+      setActiveLayerIndex(frame.layers.length - 1);
+      setLayersState([...frame.layers]);
+      draw();
+      setShowImageImportWizard(false);
+    }
   };
 
 useEffect(() => {
