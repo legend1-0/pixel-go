@@ -9,5 +9,6 @@ export { applyEdgeEnhance } from './image/edgeEnhance.js';
 export { applyAlphaThreshold } from './image/alphaThreshold.js';
 export { RETRO_PALETTES, getRetroPalette } from './image/palette/retroPalettes.js';
 export { loadVideo, grabVideoFrame } from './video/decode/videoElementFallback.js';
+export { isWebCodecsSupported } from './video/decode/webcodecs.js';
 export { extractFramesFromVideo } from './video/pipeline.js';
 export { runImagePipeline } from './image/pipeline.js';

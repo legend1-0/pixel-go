@@ -3,5 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "main": "src/index.js",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "mp4box": "^2.4.1"
+  }
 }
