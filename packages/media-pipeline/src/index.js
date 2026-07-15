@@ -5,4 +5,7 @@ export { extractPaletteMedianCut } from './image/quantize/medianCut.js';
 export { applyNoDither } from './image/dither/none.js';
 export { applyFloydSteinberg } from './image/dither/floydSteinberg.js';
 export { applyOrderedDither } from './image/dither/ordered.js';
+export { applyEdgeEnhance } from './image/edgeEnhance.js';
+export { applyAlphaThreshold } from './image/alphaThreshold.js';
+export { RETRO_PALETTES, getRetroPalette } from './image/palette/retroPalettes.js';
 export { runImagePipeline } from './image/pipeline.js';

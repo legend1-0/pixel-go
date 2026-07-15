@@ -1,6 +1,10 @@
 // apps/web/src/components/image-import/ImageImportWizard.jsx
 import { useState, useRef, useEffect, useMemo } from "react";
-import { runImagePipeline } from "@pixel-art-studio/media-pipeline";
+import {
+  runImagePipeline,
+  RETRO_PALETTES,
+  getRetroPalette,
+} from "@pixel-art-studio/media-pipeline";
 
 /**
  * Stage 1 image conversion wizard: import a photo/image, adjust
@@ -14,6 +18,10 @@ function ImageImportWizard({ canvasWidth, canvasHeight, onConvert, onCancel }) {
   const [saturation, setSaturation] = useState(0);
   const [colorCount, setColorCount] = useState(0); // 0 = no quantization
   const [dither, setDither] = useState("none");
+  const [paletteMode, setPaletteMode] = useState("auto"); // 'auto' | 'fixed'
+  const [retroPaletteKey, setRetroPaletteKey] = useState("gameboy");
+  const [edgeEnhanceAmount, setEdgeEnhanceAmount] = useState(0);
+  const [alphaThreshold, setAlphaThreshold] = useState(0);
 
   const previewCanvasRef = useRef(null);
 
@@ -37,22 +45,21 @@ function ImageImportWizard({ canvasWidth, canvasHeight, onConvert, onCancel }) {
     img.src = url;
   };
 
-  const pipelineResult = useMemo(() => {
+const pipelineResult = useMemo(() => {
     if (!sourceImage) return null;
-    return runImagePipeline(
-      sourceImage.pixels,
-      sourceImage.width,
-      sourceImage.height,
-      {
-        outputWidth: canvasWidth,
-        outputHeight: canvasHeight,
-        brightness,
-        contrast,
-        saturation,
-        colorCount,
-        dither,
-      },
-    );
+    return runImagePipeline(sourceImage.pixels, sourceImage.width, sourceImage.height, {
+      outputWidth: canvasWidth,
+      outputHeight: canvasHeight,
+      brightness,
+      contrast,
+      saturation,
+      edgeEnhanceAmount,
+      colorCount,
+      paletteMode,
+      fixedPalette: paletteMode === "fixed" ? getRetroPalette(retroPaletteKey) : null,
+      dither,
+      alphaThreshold,
+    });
   }, [
     sourceImage,
     canvasWidth,
@@ -60,8 +67,12 @@ function ImageImportWizard({ canvasWidth, canvasHeight, onConvert, onCancel }) {
     brightness,
     contrast,
     saturation,
+    edgeEnhanceAmount,
     colorCount,
+    paletteMode,
+    retroPaletteKey,
     dither,
+    alphaThreshold,
   ]);
 
   useEffect(() => {
@@ -145,19 +156,60 @@ function ImageImportWizard({ canvasWidth, canvasHeight, onConvert, onCancel }) {
             />
           </label>
           <label style={{ display: "block", marginBottom: "8px" }}>
-            Colors (0 = off):{" "}
+            Edge Enhance:{" "}
             <input
-              type="number"
+              type="range"
               min="0"
-              max="64"
-              value={colorCount}
-              onChange={(e) => {
-                const value = parseInt(e.target.value, 10) || 0;
-                setColorCount(Math.min(64, Math.max(0, value)));
-              }}
-              style={{ width: "70px" }}
+              max="3"
+              step="0.5"
+              value={edgeEnhanceAmount}
+              onChange={(e) => setEdgeEnhanceAmount(parseFloat(e.target.value))}
             />
           </label>
+
+          <label style={{ display: "block", marginBottom: "8px" }}>
+            Palette:{" "}
+            <select
+              value={paletteMode}
+              onChange={(e) => setPaletteMode(e.target.value)}
+            >
+              <option value="auto">Auto-extract from image</option>
+              <option value="fixed">Fixed retro palette</option>
+            </select>
+          </label>
+
+          {paletteMode === "fixed" && (
+            <label style={{ display: "block", marginBottom: "8px" }}>
+              Retro Palette:{" "}
+              <select
+                value={retroPaletteKey}
+                onChange={(e) => setRetroPaletteKey(e.target.value)}
+              >
+                {Object.entries(RETRO_PALETTES).map(([key, { name }]) => (
+                  <option key={key} value={key}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {paletteMode === "auto" && (
+            <label style={{ display: "block", marginBottom: "8px" }}>
+              Colors (0 = off):{" "}
+              <input
+                type="number"
+                min="0"
+                max="64"
+                value={colorCount}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10) || 0;
+                  setColorCount(Math.min(64, Math.max(0, value)));
+                }}
+                style={{ width: "70px" }}
+              />
+            </label>
+          )}
 
           {colorCount > 0 && (
             <label style={{ display: "block", marginBottom: "12px" }}>
@@ -172,6 +224,21 @@ function ImageImportWizard({ canvasWidth, canvasHeight, onConvert, onCancel }) {
               </select>
             </label>
           )}
+
+          <label style={{ display: "block", marginBottom: "12px" }}>
+            Alpha Threshold (0 = off):{" "}
+            <input
+              type="number"
+              min="0"
+              max="255"
+              value={alphaThreshold}
+              onChange={(e) => {
+                const value = parseInt(e.target.value, 10) || 0;
+                setAlphaThreshold(Math.min(255, Math.max(0, value)));
+              }}
+              style={{ width: "70px" }}
+            />
+          </label>
 
           {pipelineResult?.palette && (
             <div
