@@ -5,6 +5,8 @@ import {
   loadVideo,
   grabVideoFrame,
   resizeNearestNeighbor,
+  adjustColor,
+  applyEdgeEnhance,
   extractPaletteMedianCut,
   RETRO_PALETTES,
   getRetroPalette,
@@ -25,7 +27,10 @@ function VideoImportWizard({ onConvert, onCancel }) {
   const [paletteMode, setPaletteMode] = useState("auto");
   const [retroPaletteKey, setRetroPaletteKey] = useState("gameboy");
   const [dither, setDither] = useState("floyd-steinberg");
-
+const [brightness, setBrightness] = useState(0);
+  const [contrast, setContrast] = useState(0);
+  const [saturation, setSaturation] = useState(0);
+  const [edgeEnhanceAmount, setEdgeEnhanceAmount] = useState(0);
   const [isPreparing, setIsPreparing] = useState(false);
 
   const handleConvert = async () => {
@@ -40,28 +45,36 @@ function VideoImportWizard({ onConvert, onCancel }) {
 
     const firstRaw = await grabVideoFrame(video, timestamps[0]);
 
+ const firstResized = resizeNearestNeighbor(
+      firstRaw.pixels,
+      firstRaw.width,
+      firstRaw.height,
+      outputWidth,
+      outputHeight,
+    );
+    adjustColor(firstResized, { brightness, contrast, saturation }); // mutates in place — apply adjustments BEFORE extracting the palette
+    const firstAdjusted =
+      edgeEnhanceAmount > 0 ? applyEdgeEnhance(firstResized, outputWidth, outputHeight, edgeEnhanceAmount) : firstResized;
+
     let resolvedPalette = null;
     if (paletteMode === "fixed") {
       resolvedPalette = getRetroPalette(retroPaletteKey);
     } else if (paletteMode === "auto" && colorCount > 0) {
-      const firstResized = resizeNearestNeighbor(
-        firstRaw.pixels,
-        firstRaw.width,
-        firstRaw.height,
-        outputWidth,
-        outputHeight,
-      );
-      resolvedPalette = extractPaletteMedianCut(firstResized, colorCount);
+      resolvedPalette = extractPaletteMedianCut(firstAdjusted, colorCount);
     }
 
     setIsPreparing(false);
 
-    onConvert({
+onConvert({
       videoBlob: file,
       timestamps,
       pipelineSettings: {
         outputWidth,
         outputHeight,
+        brightness,
+        contrast,
+        saturation,
+        edgeEnhanceAmount,
         fixedPalette: resolvedPalette,
         dither,
       },
@@ -72,7 +85,11 @@ function VideoImportWizard({ onConvert, onCancel }) {
   };
 
   return (
-    <div className="wizard">
+    <div className="wizard-modal" onClick={onCancel}>
+    <div
+      className="wizard"
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="wizard__header">
         <p className="wizard__eyebrow">Import</p>
         <h2 className="wizard__title">Convert a Video</h2>
@@ -116,6 +133,37 @@ function VideoImportWizard({ onConvert, onCancel }) {
                 />
               </div>
             </div>
+          </div>
+          <button
+            onClick={() => {
+              setContrast(25);
+              setSaturation(20);
+              setEdgeEnhanceAmount(1);
+              if (paletteMode === "auto") setColorCount(16);
+              setDither("floyd-steinberg");
+            }}
+            style={{ marginBottom: "12px" }}
+          >
+            ✨ Retro Punch (quick preset)
+          </button>
+<div className="wizard__section">
+            <div className="wizard__slider-row">
+              <label className="wizard__label" style={{ marginBottom: 0 }}>Contrast</label>
+              <span className="wizard__slider-value">{contrast}</span>
+            </div>
+            <input type="range" className="wizard__slider" min="-100" max="100" value={contrast} onChange={(e) => setContrast(parseInt(e.target.value, 10))} />
+
+            <div className="wizard__slider-row">
+              <label className="wizard__label" style={{ marginBottom: 0 }}>Saturation</label>
+              <span className="wizard__slider-value">{saturation}</span>
+            </div>
+            <input type="range" className="wizard__slider" min="-100" max="100" value={saturation} onChange={(e) => setSaturation(parseInt(e.target.value, 10))} />
+
+            <div className="wizard__slider-row">
+              <label className="wizard__label" style={{ marginBottom: 0 }}>Edge Enhance</label>
+              <span className="wizard__slider-value">{edgeEnhanceAmount}</span>
+            </div>
+            <input type="range" className="wizard__slider" min="0" max="3" step="0.5" value={edgeEnhanceAmount} onChange={(e) => setEdgeEnhanceAmount(parseFloat(e.target.value))} />
           </div>
 
           <div className="wizard__section">
@@ -217,6 +265,7 @@ function VideoImportWizard({ onConvert, onCancel }) {
       <button className="wizard__cancel" onClick={onCancel}>
         Cancel
       </button>
+    </div>
     </div>
   );
 }

@@ -43,3 +43,16 @@
 .toolbar-btn--active .toolbar-btn__shortcut {
   color: #141414;
 }
+/* ---- Responsive: switch from vertical rail to horizontal row on tablet ---- */
+
+@media (max-width: 1080px) {
+  .toolbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-btn {
+    width: auto;
+    flex: 1 1 100px;
+  }
+}

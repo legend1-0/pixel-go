@@ -1,12 +1,82 @@
+/* ==========================
+   Modal
+========================== */
+
+.wizard-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 32px;
+
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  animation: wizardFadeIn 180ms ease;
+}
+
+
+@keyframes wizardFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes wizardPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* nicer scrollbar */
+
+.wizard::-webkit-scrollbar {
+  width: 8px;
+}
+
+.wizard::-webkit-scrollbar-thumb {
+  background: #bbb;
+  border-radius: 20px;
+}
 .wizard {
+  width: min(900px, 95vw);
+  max-height: 90vh;
+
+  overflow-y: auto;
+
+  background: #faf9f5;
+  border-radius: 18px;
+
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.35),
+    4px 4px 0 #141414;
+
+  animation: wizardPopIn 0.22s ease;
+
   box-sizing: border-box;
   padding: 32px;
-  width: 460px;
+  /* width: 460px; */
   max-width: 100%;
   background: #faf9f5;
   border-radius: 16px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: #0F0F0F;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #0f0f0f;
 }
 
 .wizard__header {
@@ -45,7 +115,7 @@
   gap: 10px;
   width: 100%;
   padding: 40px 20px;
-  background: #F0F0F0;
+  background: #f0f0f0;
   border: 2px dashed #141414;
   border-radius: 12px;
   cursor: pointer;
@@ -79,7 +149,7 @@
   align-items: center;
   height: 44px;
   padding: 0 12px;
-  background: #F0F0F0;
+  background: #f0f0f0;
   border: 2px solid #141414;
   border-radius: 10px;
 }
@@ -105,14 +175,17 @@
   box-sizing: border-box;
   flex: 1;
   height: 40px;
-  background: #F0F0F0;
+  background: #f0f0f0;
   border: 2px solid #141414;
   border-radius: 10px;
   color: #141414;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    background 0.12s ease;
 }
 
 .wizard__preset:hover {
@@ -136,7 +209,7 @@
   align-items: center;
   height: 40px;
   padding: 0 12px;
-  background: #F0F0F0;
+  background: #f0f0f0;
   border: 2px solid #141414;
   border-radius: 10px;
 }
@@ -155,7 +228,7 @@
   display: flex;
   justify-content: center;
   padding: 16px;
-  background: #F0F0F0;
+  background: #f0f0f0;
   border: 2px solid #141414;
   border-radius: 12px;
   margin-bottom: 20px;
@@ -222,13 +295,15 @@
   border: 2px solid #141414;
   border-radius: 12px;
   box-shadow: 4px 4px 0 0 #141414;
-  color: #0F0F0F;
+  color: #0f0f0f;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .wizard__submit:hover {
@@ -255,7 +330,9 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .wizard__cancel:hover {

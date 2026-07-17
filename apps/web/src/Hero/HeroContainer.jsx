@@ -71,14 +71,7 @@ export default function HeroContainer() {
             <span className="btnText">How to Use</span>
           </button>
         </NavLink>
-        <NavLink to="/docs" end>
-          <button className="ctaButton btn-primary">
-            <span className="btnText">
-              Doc's <br />
-              <span>(for Developers)</span>
-            </span>
-          </button>
-        </NavLink>
+
       </div>
     </div>
   );

@@ -90,8 +90,12 @@ function ImageImportWizard({ canvasWidth, canvasHeight, onConvert, onCancel }) {
   };
 
   return (
-    <div className="wizard">
-      <div className="wizard__header">
+  <div className="wizard-modal" onClick={onCancel}>
+    <div
+      className="wizard"
+      onClick={(e) => e.stopPropagation()}
+    >
+            <div className="wizard__header">
         <p className="wizard__eyebrow">Import</p>
         <h2 className="wizard__title">Convert an Image</h2>
       </div>
@@ -322,6 +326,7 @@ function ImageImportWizard({ canvasWidth, canvasHeight, onConvert, onCancel }) {
       <button className="wizard__cancel" onClick={onCancel}>
         Cancel
       </button>
+    </div>
     </div>
   );
 }

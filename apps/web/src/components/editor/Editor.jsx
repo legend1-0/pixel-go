@@ -29,19 +29,15 @@ import VideoImportWizard from "../video-import/VideoImportWizard";
 import { loadVideo, grabVideoFrame, runImagePipeline } from "@pixel-art-studio/media-pipeline";
 import { saveVideoSource, loadVideoSource, deleteVideoSourcesForProject } from "../../storage/projectStorage";
 import {
-  X,
   ArrowLeft,
-  Download,
-  LayoutGrid,
-  Film,
-  Images,
-  FileArchive,
   ImagePlus,
   Video,
   FileUp,
   Upload,
 } from "lucide-react";
 import Toast from "../shared/Toast";
+import "./Editor.css"
+import ExportOptions from "../Export-options/ExportOptions";
 function Modal({ onClose, children }) {
   return (
     <div className="editor-modal-overlay" onClick={onClose}>
@@ -80,7 +76,7 @@ const videoSourceRegistryRef = useRef(new Map()); // sourceMediaId -> { blob, pi
   const materializedVideoFrameOrderRef = useRef([]); // frame ids, oldest-first LRU order
   const MAX_MATERIALIZED_VIDEO_FRAMES = 15;
   const [isMaterializing, setIsMaterializing] = useState(false);
-
+  const [exportButton, setExportButton] = useState(false)
   const [toast, setToast] = useState(null); // { message, variant }
 
 const showToast = (message, variant = "info") => {
@@ -104,6 +100,19 @@ const showToast = (message, variant = "info") => {
     activeTool === "eraser" ? [0, 0, 0, 0] : activeColor;
 
 
+  const CANVAS_BUFFER_SIZE = 500; // matches CanvasViewport's internal width/height attributes
+
+  const getFitZoomAndPan = (docWidth, docHeight) => {
+    const padding = 0.9; // small breathing room around the artwork
+    const scale = Math.min(CANVAS_BUFFER_SIZE / docWidth, CANVAS_BUFFER_SIZE / docHeight) * padding;
+    return {
+      zoom: scale,
+      pan: {
+        x: (CANVAS_BUFFER_SIZE - docWidth * scale) / 2,
+        y: (CANVAS_BUFFER_SIZE - docHeight * scale) / 2,
+      },
+    };
+  };
   
 
   // ---- export ----
@@ -323,8 +332,9 @@ if (!doc) {
     setFramesState([...doc.frames]);
     setActiveFrameIndex(0);
     setActiveLayerIndex(0);
-    setZoom(10);
-    setPan({ x: 0, y: 0 });
+const { zoom: fitZoom, pan: fitPan } = getFitZoomAndPan(doc.meta.width, doc.meta.height);
+    setZoom(fitZoom);
+    setPan(fitPan);
     setOnionSkinEnabled(false);
     setIsPlaying(false);
     setProjectName(doc.meta.name);
@@ -352,10 +362,11 @@ const startNewProject = (width, height) => {
     setLayersState([...docRef.current.frames[0].layers]);
     setPaletteState([...docRef.current.palette]);
     setFramesState([...docRef.current.frames]);
-    setActiveFrameIndex(0);
+setActiveFrameIndex(0);
     setActiveLayerIndex(0);
-    setZoom(10);
-    setPan({ x: 0, y: 0 });
+    const { zoom: fitZoom, pan: fitPan } = getFitZoomAndPan(width, height);
+    setZoom(fitZoom);
+    setPan(fitPan);
     setOnionSkinEnabled(false);
     setIsPlaying(false);
     setProjectName(docRef.current.meta.name);
@@ -395,8 +406,9 @@ const handleImageConvert = (pixels, width, height, destination) => {
       setFramesState([...newDoc.frames]);
       setActiveFrameIndex(0);
       setActiveLayerIndex(0);
-      setZoom(10);
-      setPan({ x: 0, y: 0 });
+  const { zoom: fitZoom, pan: fitPan } = getFitZoomAndPan(width, height); // use whichever width/height variable that function has (docRef.current.meta.width/height, or the width/height already in scope)
+    setZoom(fitZoom);
+    setPan(fitPan);
       setOnionSkinEnabled(false);
       setIsPlaying(false);
       setProjectName(newDoc.meta.name);
@@ -448,8 +460,9 @@ const handleVideoConvert = async ({ videoBlob, timestamps, pipelineSettings, fra
     setFramesState([...newDoc.frames]);
     setActiveFrameIndex(0);
     setActiveLayerIndex(0);
-    setZoom(10);
-    setPan({ x: 0, y: 0 });
+const { zoom: fitZoom, pan: fitPan } = getFitZoomAndPan(outputWidth,outputHeight);
+    setZoom(fitZoom);
+    setPan(fitPan);
     setOnionSkinEnabled(false);
     setIsPlaying(false);
     setProjectName(newDoc.meta.name);
@@ -493,9 +506,13 @@ const materializeFrame = async (frame, { evict = true } = {}) => {
 
       const raw = await (entry.seekQueue = entry.seekQueue.then(() => grabVideoFrame(video, timestamp)));
 
-      const result = runImagePipeline(raw.pixels, raw.width, raw.height, {
+const result = runImagePipeline(raw.pixels, raw.width, raw.height, {
         outputWidth: entry.pipelineSettings.outputWidth,
         outputHeight: entry.pipelineSettings.outputHeight,
+        brightness: entry.pipelineSettings.brightness || 0,
+        contrast: entry.pipelineSettings.contrast || 0,
+        saturation: entry.pipelineSettings.saturation || 0,
+        edgeEnhanceAmount: entry.pipelineSettings.edgeEnhanceAmount || 0,
         paletteMode: entry.pipelineSettings.fixedPalette ? "fixed" : "auto",
         fixedPalette: entry.pipelineSettings.fixedPalette,
         dither: entry.pipelineSettings.dither,
@@ -1413,6 +1430,7 @@ return (
             setDocumentReady(false);
             navigate("/projects");
           }}
+          title="Back to project"
         >
           <ArrowLeft size={16} strokeWidth={2.5} />
           Projects
@@ -1448,31 +1466,23 @@ return (
           onChange={(e) => setActiveColor(hexToRgba(e.target.value))}
           title="Active color"
         />
-
-        <button className="editor-icon-btn" onClick={exportPNG}>
-          <Download size={14} strokeWidth={2.5} /> PNG
-        </button>
-        <button className="editor-icon-btn" onClick={exportSpriteSheet}>
-          <LayoutGrid size={14} strokeWidth={2.5} /> Sprite Sheet
-        </button>
-        <button className="editor-icon-btn" onClick={exportGIF}>
-          <Film size={14} strokeWidth={2.5} /> GIF
-        </button>
-        <button className="editor-icon-btn" onClick={exportAPNG}>
-          <Images size={14} strokeWidth={2.5} /> APNG
-        </button>
-        <button className="editor-icon-btn" onClick={exportProjectFile}>
-          <FileArchive size={14} strokeWidth={2.5} /> Project File
-        </button>
-
+<ExportOptions
+  exportButton={exportButton}
+  setExportButton={setExportButton}
+  exportPNG={exportPNG}
+  exportSpriteSheet={exportSpriteSheet}
+  exportGIF={exportGIF}
+  exportAPNG={exportAPNG}
+  exportProjectFile={exportProjectFile}
+/>
         <button
-          className="editor-icon-btn editor-icon-btn--primary"
+          className="editor-icon-btn"
           onClick={() => setShowImageImportWizard(true)}
         >
           <ImagePlus size={14} strokeWidth={2.5} /> Import Image
         </button>
         <button
-          className="editor-icon-btn editor-icon-btn--primary"
+          className="editor-icon-btn"
           onClick={() => setShowVideoImportWizard(true)}
         >
           <Video size={14} strokeWidth={2.5} /> Import Video
@@ -1502,6 +1512,15 @@ return (
         </label>
       </div>
     </div>
+
+
+
+
+
+
+
+
+
 
     <div className="editor-main">
       <div className="editor-workspace">
