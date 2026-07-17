@@ -1,0 +1,50 @@
+.inline-editable-name {
+  flex: 1;
+  min-width: 0; /* lets text-overflow ellipsis actually work inside a flex row */
+}
+
+.inline-editable-name__display {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  color: #141414;
+  cursor: text;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.inline-editable-name__display:hover {
+  background: #efdca4;
+  border-color: #141414;
+}
+
+.inline-editable-name__display--placeholder {
+  color: #45261c;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.inline-editable-name__input {
+  box-sizing: border-box;
+  width: 100%;
+  font-size: 14px;
+  font-weight: 600;
+  color: #141414;
+  background: #faf9f5;
+  border: 2px solid #141414;
+  border-radius: 8px;
+  padding: 6px 8px;
+  outline: none;
+  font-family: inherit;
+}
+
+.inline-editable-name__input:focus-visible {
+  outline: 3px solid #e8533a;
+  outline-offset: 2px;
+}

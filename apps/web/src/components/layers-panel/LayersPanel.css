@@ -1,0 +1,122 @@
+.layers-panel {
+  width: 240px;
+}
+
+.layers-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.layers-panel__title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #45261c;
+}
+
+.layers-panel__add {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #5fb57f;
+  border: 2px solid #141414;
+  border-radius: 8px;
+  color: #0F0F0F;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.layers-panel__add:hover {
+  box-shadow: 2px 2px 0 0 #141414;
+  transform: translate(-1px, -1px);
+}
+
+.layers-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.layer-row {
+  box-sizing: border-box;
+  padding: 10px;
+  background: #faf9f5;
+  border: 2px solid #141414;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.layer-row--active {
+  background: #efdca4;
+  box-shadow: 3px 3px 0 0 #5fb57f;
+}
+
+.layer-row__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.layer-row__name {
+  flex: 1;
+  min-width: 0;
+}
+
+.layer-row__icon-btn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  color: #45261c;
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+
+.layer-row__icon-btn:hover {
+  background: #faf9f5;
+  border-color: #141414;
+  color: #141414;
+}
+
+.layer-row__icon-btn--delete:hover {
+  border-color: #e8533a;
+  color: #e8533a;
+}
+
+.layer-row__icon-btn--hidden {
+  opacity: 0.4;
+}
+
+.layer-row__opacity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.layer-row__opacity-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #45261c;
+  flex-shrink: 0;
+}
+
+.layer-row__opacity input[type="range"] {
+  flex: 1;
+  accent-color: #5fb57f;
+}

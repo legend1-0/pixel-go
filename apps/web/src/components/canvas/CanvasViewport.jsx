@@ -1,4 +1,5 @@
 // apps/web/src/components/canvas/CanvasViewport.jsx
+import "./CanvasViewport.css";
 
 /**
  * Purely presentational — renders the <canvas> element and forwards
@@ -10,11 +11,7 @@ function CanvasViewport({ canvasRef, onWheel, onMouseDown, onMouseMove, onMouseU
       ref={canvasRef}
       width={500}
       height={500}
-      style={{
-        border: "1px solid #333",
-        imageRendering: "pixelated",
-        cursor: "crosshair",
-      }}
+      className="canvas-viewport"
       onWheel={onWheel}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}

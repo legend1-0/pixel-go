@@ -26,7 +26,31 @@ import { saveProject, listProjects, loadProjectData, renameProjectMeta, deletePr
 import { useParams, useNavigate } from "react-router";
 import ImageImportWizard from "../image-import/ImageImportWizard";
 import VideoImportWizard from "../video-import/VideoImportWizard";
-
+import { loadVideo, grabVideoFrame, runImagePipeline } from "@pixel-art-studio/media-pipeline";
+import { saveVideoSource, loadVideoSource, deleteVideoSourcesForProject } from "../../storage/projectStorage";
+import {
+  X,
+  ArrowLeft,
+  Download,
+  LayoutGrid,
+  Film,
+  Images,
+  FileArchive,
+  ImagePlus,
+  Video,
+  FileUp,
+  Upload,
+} from "lucide-react";
+import Toast from "../shared/Toast";
+function Modal({ onClose, children }) {
+  return (
+    <div className="editor-modal-overlay" onClick={onClose}>
+      <div className="editor-modal-card" onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  );
+}
 function Editor() {
   const canvasRef = useRef(null);
   const docRef = useRef(null);
@@ -52,7 +76,16 @@ function Editor() {
   const [showImageImportWizard, setShowImageImportWizard] = useState(false);
   const [docSize, setDocSize] = useState({ width: 0, height: 0 }); // ADD THIS
   const [showVideoImportWizard, setShowVideoImportWizard] = useState(false);
+const videoSourceRegistryRef = useRef(new Map()); // sourceMediaId -> { blob, pipelineSettings, videoElementPromise }
+  const materializedVideoFrameOrderRef = useRef([]); // frame ids, oldest-first LRU order
+  const MAX_MATERIALIZED_VIDEO_FRAMES = 15;
+  const [isMaterializing, setIsMaterializing] = useState(false);
 
+  const [toast, setToast] = useState(null); // { message, variant }
+
+const showToast = (message, variant = "info") => {
+  setToast({ message, variant });
+};
   
   const isDragging = useRef(false);
   const isDrawing = useRef(false);
@@ -124,7 +157,8 @@ const exportCanvas = renderFrameToCanvas(frame, doc.meta.width, doc.meta.height,
       URL.revokeObjectURL(url);
     }, "image/png");
   };
-  const exportSpriteSheet = () => {
+  const exportSpriteSheet = async () => {
+    await ensureAllFramesMaterialized();
     const doc = docRef.current;
     const frameWidth = doc.meta.width;
     const frameHeight = doc.meta.height;
@@ -152,7 +186,8 @@ const sheetCanvas = document.createElement("canvas");
       URL.revokeObjectURL(url);
     }, "image/png");
   };
-  const exportGIF = () => {
+  const exportGIF = async () => {
+    await ensureAllFramesMaterialized();
     const doc = docRef.current;
 
     // eslint-disable-next-line no-undef
@@ -181,7 +216,8 @@ const sheetCanvas = document.createElement("canvas");
     gif.render();
   };
 
-const exportAPNG = () => {
+const exportAPNG = async () => {
+  await ensureAllFramesMaterialized();
     const doc = docRef.current;
     const width = doc.meta.width * exportScale;
     const height = doc.meta.height * exportScale;
@@ -209,6 +245,7 @@ const exportAPNG = () => {
   };
 
   const exportProjectFile = async () => {
+    await ensureAllFramesMaterialized();
     const doc = docRef.current;
     const zip = new JSZip();
 
@@ -273,11 +310,12 @@ const generateThumbnail = () => {
 
 const openProject = async (id) => {
     const doc = await loadProjectData(id);
-    if (!doc) {
-      alert("Project not found.");
-      navigate("/projects");
-      return;
-    }
+// in openProject
+if (!doc) {
+  showToast("That project no longer exists.", "error");
+  navigate("/projects");
+  return;
+}
     docRef.current = doc;
     historyRef.current = new HistoryManager();
     setLayersState([...doc.frames[0].layers]);
@@ -296,8 +334,9 @@ setDocSize({ width: doc.meta.width, height: doc.meta.height }); // ADD THIS
     navigate(`/editor/${id}`); // ADDED — ensures the URL always matches the open project
   };
 
-  const deleteProjectFromLibrary = async (id) => {
+const deleteProjectFromLibrary = async (id) => {
     await deleteProject(id);
+    await deleteVideoSourcesForProject(id);
     setProjectsList((prev) => prev.filter((p) => p.id !== id));
   };
 
@@ -379,19 +418,31 @@ const handleImageConvert = (pixels, width, height, destination) => {
     }
   };
 
-  const handleVideoConvert = (framesPixelArrays, width, height, frameDurationMs) => {
-    const newDoc = createDocument({ width, height });
+const handleVideoConvert = async ({ videoBlob, timestamps, pipelineSettings, frameDurationMs, outputWidth, outputHeight }) => {
+    const newDoc = createDocument({ width: outputWidth, height: outputHeight });
+    const sourceMediaId = crypto.randomUUID();
 
-    // replace the default single frame with one real frame per extracted video frame
-    newDoc.frames = framesPixelArrays.map((pixels) => {
-      const frame = createFrame(width, height);
+    newDoc.frames = timestamps.map((timestamp) => {
+      const frame = createFrame(outputWidth, outputHeight);
       frame.duration = frameDurationMs;
-      frame.layers[0].pixels.set(pixels);
+      frame.source = "video";
+      frame.videoRef = { sourceMediaId, timestamp, materialized: false };
       return frame;
     });
 
     docRef.current = newDoc;
     historyRef.current = new HistoryManager();
+
+    await saveVideoSource(newDoc.meta.id, sourceMediaId, videoBlob, pipelineSettings);
+    videoSourceRegistryRef.current.set(sourceMediaId, {
+      blob: videoBlob,
+      pipelineSettings,
+      videoElementPromise: null,
+    });
+    materializedVideoFrameOrderRef.current = [];
+
+    await materializeFrame(newDoc.frames[0]); // so the user sees something immediately
+
     setLayersState([...newDoc.frames[0].layers]);
     setPaletteState([...newDoc.palette]);
     setFramesState([...newDoc.frames]);
@@ -407,6 +458,94 @@ const handleImageConvert = (pixels, width, height, destination) => {
     saveToLibrary();
     navigate(`/editor/${newDoc.meta.id}`);
     setShowVideoImportWizard(false);
+  };
+
+const getVideoElementForSource = async (sourceMediaId) => {
+    let entry = videoSourceRegistryRef.current.get(sourceMediaId);
+
+    if (!entry) {
+      const stored = await loadVideoSource(docRef.current.meta.id, sourceMediaId);
+      if (!stored) throw new Error(`Video source ${sourceMediaId} not found`);
+      entry = {
+        blob: stored.blob,
+        pipelineSettings: stored.pipelineSettings,
+        videoElementPromise: null,
+        seekQueue: Promise.resolve(), // ADDED — serializes seeks on this video element
+      };
+      videoSourceRegistryRef.current.set(sourceMediaId, entry);
+    }
+
+    if (!entry.videoElementPromise) {
+      entry.videoElementPromise = loadVideo(entry.blob).then((loaded) => loaded.video);
+    }
+
+    return entry.videoElementPromise;
+  };
+
+const materializeFrame = async (frame, { evict = true } = {}) => {
+    if (frame.source !== "video" || frame.videoRef.materialized) return;
+
+    setIsMaterializing(true);
+    try {
+      const { sourceMediaId, timestamp } = frame.videoRef;
+      const video = await getVideoElementForSource(sourceMediaId);
+      const entry = videoSourceRegistryRef.current.get(sourceMediaId);
+
+      const raw = await (entry.seekQueue = entry.seekQueue.then(() => grabVideoFrame(video, timestamp)));
+
+      const result = runImagePipeline(raw.pixels, raw.width, raw.height, {
+        outputWidth: entry.pipelineSettings.outputWidth,
+        outputHeight: entry.pipelineSettings.outputHeight,
+        paletteMode: entry.pipelineSettings.fixedPalette ? "fixed" : "auto",
+        fixedPalette: entry.pipelineSettings.fixedPalette,
+        dither: entry.pipelineSettings.dither,
+      });
+
+      const realLayer = createLayer(null, entry.pipelineSettings.outputWidth, entry.pipelineSettings.outputHeight);
+      realLayer.pixels.set(result.pixels);
+      frame.layers = [realLayer];
+      frame.videoRef.materialized = true;
+
+      if (evict) {
+        materializedVideoFrameOrderRef.current = materializedVideoFrameOrderRef.current.filter(
+          (id) => id !== frame.id,
+        );
+        materializedVideoFrameOrderRef.current.push(frame.id);
+
+        if (materializedVideoFrameOrderRef.current.length > MAX_MATERIALIZED_VIDEO_FRAMES) {
+          const doc = docRef.current;
+          const evictId = materializedVideoFrameOrderRef.current.shift();
+          const evictFrame = doc.frames.find((f) => f.id === evictId);
+          if (evictFrame && evictFrame.source === "video" && evictFrame.id !== frame.id) {
+            evictFrame.layers = [
+              createLayer(null, entry.pipelineSettings.outputWidth, entry.pipelineSettings.outputHeight),
+            ];
+            evictFrame.videoRef.materialized = false;
+          }
+        }
+      }
+    } finally {
+      setIsMaterializing(false);
+    }
+  };
+const ensureAllFramesMaterialized = async () => {
+    const doc = docRef.current;
+    for (const frame of doc.frames) {
+      if (frame.source === "video" && !frame.videoRef.materialized) {
+        await materializeFrame(frame, { evict: false }); // CHANGED — don't evict earlier frames while materializing all of them
+      }
+    }
+  };
+
+  const promoteActiveFrameIfVideo = () => {
+    const frame = getActiveFrame();
+    if (frame.source === "video") {
+      frame.source = "drawn";
+      delete frame.videoRef;
+      materializedVideoFrameOrderRef.current = materializedVideoFrameOrderRef.current.filter(
+        (id) => id !== frame.id,
+      );
+    }
   };
 
 useEffect(() => {
@@ -611,21 +750,37 @@ useEffect(() => {
     const doc = docRef.current;
     const currentFrame = doc.frames[activeFrameIndex];
 
-    playbackTimeoutRef.current = setTimeout(() => {
+playbackTimeoutRef.current = setTimeout(() => {
       const nextIndex = (activeFrameIndex + 1) % doc.frames.length;
+      const nextFrame = doc.frames[nextIndex];
       setActiveFrameIndex(nextIndex);
-      setLayersState([...doc.frames[nextIndex].layers]);
+      setLayersState([...nextFrame.layers]);
+
+      if (nextFrame.source === "video" && !nextFrame.videoRef.materialized) {
+        materializeFrame(nextFrame).then(() => {
+          setLayersState([...nextFrame.layers]);
+          draw();
+        });
+      }
     }, currentFrame.duration);
 
     return () => clearTimeout(playbackTimeoutRef.current);
   }, [isPlaying, activeFrameIndex]);
 
   // ---- frame management ----
-  const switchToFrame = (index) => {
+const switchToFrame = (index) => {
     const doc = docRef.current;
+    const frame = doc.frames[index];
     setActiveFrameIndex(index);
-    setLayersState([...doc.frames[index].layers]);
+    setLayersState([...frame.layers]);
     setActiveLayerIndex(0);
+
+    if (frame.source === "video" && !frame.videoRef.materialized) {
+      materializeFrame(frame).then(() => {
+        setLayersState([...frame.layers]);
+        draw();
+      });
+    }
   };
 
   const addFrame = () => {
@@ -665,10 +820,11 @@ useEffect(() => {
   const deleteFrame = (index) => {
     const doc = docRef.current;
 
-    if (doc.frames.length <= 1) {
-      alert("You can't delete the last remaining frame.");
-      return;
-    }
+// in deleteFrame
+if (doc.frames.length <= 1) {
+  showToast("You can't delete the last remaining frame.", "error");
+  return;
+}
 
     doc.frames.splice(index, 1);
 
@@ -701,10 +857,11 @@ useEffect(() => {
   const deleteLayer = (index) => {
     const frame = getActiveFrame();
 
-    if (frame.layers.length <= 1) {
-      alert("You can't delete the last remaining layer.");
-      return;
-    }
+// in deleteLayer
+if (frame.layers.length <= 1) {
+  showToast("You can't delete the last remaining layer.", "error");
+  return;
+}
 
     frame.layers.splice(index, 1);
 
@@ -760,13 +917,15 @@ useEffect(() => {
     const url = URL.createObjectURL(file);
 
     img.onload = () => {
-      if (img.width !== doc.meta.width || img.height !== doc.meta.height) {
-        alert(
-          `This image is ${img.width}×${img.height}, but your project is ${doc.meta.width}×${doc.meta.height}. Import requires an exact size match for now.`,
-        );
-        URL.revokeObjectURL(url);
-        return;
-      }
+  // in importPNG
+if (img.width !== doc.meta.width || img.height !== doc.meta.height) {
+  showToast(
+    `This image is ${img.width}×${img.height}, but your project is ${doc.meta.width}×${doc.meta.height}. Import requires an exact size match for now.`,
+    "error",
+  );
+  URL.revokeObjectURL(url);
+  return;
+}
 
       // draw the image onto a temporary canvas so we can read its raw pixels
       const tempCanvas = document.createElement("canvas");
@@ -801,11 +960,13 @@ useEffect(() => {
 
     // ADDED — schema version handling
     const schemaVersion = manifest.schemaVersion ?? 0; // files exported before this existed are treated as version 0
-    if (schemaVersion > 1) {
-      alert(
-        "This project file was created with a newer version of Pixel Art Studio and may not import correctly.",
-      );
-    }
+// in importProjectFile
+if (schemaVersion > 1) {
+  showToast(
+    "This project file was created with a newer version of Pixel Art Studio and may not import correctly.",
+    "error",
+  );
+}
     const paletteText = await zip.file("palette.json").async("string");
     const palette = JSON.parse(paletteText);
 
@@ -910,7 +1071,8 @@ const newDoc = {
     draw();
   };
 
-  const paintAt = (clientX, clientY) => {
+const paintAt = (clientX, clientY) => {
+    promoteActiveFrameIfVideo(); // ADDED — video frames become permanent "drawn" frames on first edit
     const doc = docRef.current;
     const { gridX, gridY } = screenToGrid(clientX, clientY);
 
@@ -1111,7 +1273,8 @@ const newDoc = {
     }
   };
 
-  const handleMouseUp = (e) => {
+const handleMouseUp = (e) => {
+    promoteActiveFrameIfVideo(); // ADDED
     if (activeTool === "line" && lineStart.current) {
       const doc = docRef.current;
       const { gridX, gridY } = screenToGrid(e.clientX, e.clientY);
@@ -1189,209 +1352,203 @@ const newDoc = {
   
 
 if (libraryLoading) {
-    return <div style={{ padding: "24px" }}>Loading...</div>;
+  return <div className="editor-loading">Loading...</div>;
+}
+
+if (!documentReady) {
+  if (projectId) {
+    return <div className="editor-loading">Opening project...</div>;
   }
 
-  if (!documentReady) {
-    if (projectId) {
-      return <div style={{ padding: "24px" }}>Opening project...</div>;
-    }
-
-    return (
-      <div style={{ padding: "24px" }}>
-        <ProjectLibrary
-          projects={projectsList}
-          onOpen={openProject}
-          onDelete={deleteProjectFromLibrary}
-          onRename={renameProjectInLibrary}
-          onNewProject={() => setShowNewProjectModal(true)}
-        />
-
-      
-        {showNewProjectModal && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: "rgba(0,0,0,0.4)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onClick={() => setShowNewProjectModal(false)}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{ background: "white", borderRadius: "12px", position: "relative" }}
-            >
-              <button
-                onClick={() => setShowNewProjectModal(false)}
-                style={{ position: "absolute", top: "8px", right: "8px" }}
-              >
-                ✕
-              </button>
-              <NewProjectDialog onCreate={startNewProject} />
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
   return (
-    <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-<div>
-              {showImageImportWizard && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          onClick={() => setShowImageImportWizard(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: "white", borderRadius: "12px" }}
-          >
-<ImageImportWizard
-  canvasWidth={docSize.width}
-  canvasHeight={docSize.height}
-  onConvert={handleImageConvert}
-  onCancel={() => setShowImageImportWizard(false)}
-/>
-          </div>
-        </div>
+    <div className="editor-projects-page">
+      <ProjectLibrary
+        projects={projectsList}
+        onOpen={openProject}
+        onDelete={deleteProjectFromLibrary}
+        onRename={renameProjectInLibrary}
+        onNewProject={() => setShowNewProjectModal(true)}
+      />
+
+      {showNewProjectModal && (
+        <Modal onClose={() => setShowNewProjectModal(false)}>
+          <NewProjectDialog
+            onCreate={startNewProject}
+            onClose={() => setShowNewProjectModal(false)}
+          />
+        </Modal>
       )}
-      {showVideoImportWizard && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          onClick={() => setShowVideoImportWizard(false)}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ background: "white", borderRadius: "12px" }}>
-            <VideoImportWizard onConvert={handleVideoConvert} onCancel={() => setShowVideoImportWizard(false)} />
-          </div>
-        </div>
-      )}
-        <div>
-        <InlineEditableName
-          value={projectName}
-          placeholder="Untitled Project"
-          onChange={renameProject}
+    </div>
+  );
+}
+
+return (
+  <div className="editor-page">
+    {showImageImportWizard && (
+      <Modal onClose={() => setShowImageImportWizard(false)}>
+        <ImageImportWizard
+          canvasWidth={docSize.width}
+          canvasHeight={docSize.height}
+          onConvert={handleImageConvert}
+          onCancel={() => setShowImageImportWizard(false)}
         />
+      </Modal>
+    )}
+
+    {showVideoImportWizard && (
+      <Modal onClose={() => setShowVideoImportWizard(false)}>
+        <VideoImportWizard
+          onConvert={handleVideoConvert}
+          onCancel={() => setShowVideoImportWizard(false)}
+        />
+      </Modal>
+    )}
+
+    <div className="editor-topbar">
+      <div className="editor-topbar-left">
         <button
+          className="editor-back-btn"
           onClick={() => {
             docRef.current = null;
             setDocumentReady(false);
             navigate("/projects");
           }}
-          style={{ marginBottom: "8px", display: "block" }}
         >
-          ← Back to Projects
+          <ArrowLeft size={16} strokeWidth={2.5} />
+          Projects
         </button>
 
+        <div className="editor-project-name">
+          <InlineEditableName
+            value={projectName}
+            placeholder="Untitled Project"
+            onChange={renameProject}
+          />
         </div>
-        <label style={{ display: "block", marginBottom: "8px" }}>
-          Export Scale:
-          <select value={exportScale} onChange={(e) => setExportScale(parseInt(e.target.value, 10))}>
-            <option value={1}>1x (native)</option>
+      </div>
+
+      <div className="editor-topbar-actions">
+        <div className="editor-select-wrap">
+          Scale
+          <select
+            value={exportScale}
+            onChange={(e) => setExportScale(parseInt(e.target.value, 10))}
+          >
+            <option value={1}>1x</option>
             <option value={4}>4x</option>
             <option value={8}>8x</option>
             <option value={16}>16x</option>
           </select>
-        </label>
+        </div>
 
-        <button onClick={exportPNG} style={{ marginBottom: "8px", display: "block" }}>
-         Export PNG
-        </button>
-        <button onClick={exportSpriteSheet} style={{ marginBottom: "8px", display: "block" }}>
-          Export Sprite Sheet
-        </button>
-       <button onClick={exportGIF} style={{ marginBottom: "8px", display: "block" }}>
-          Export GIF
-        </button>
-        <button onClick={exportAPNG} style={{ marginBottom: "8px", display: "block" }}>
-          Export APNG
-        </button>
-        <button onClick={exportProjectFile} style={{ marginBottom: "8px", display: "block" }}>
-          Export Project File (.pxls)
-        </button>
-        <button onClick={() => setShowImageImportWizard(true)} style={{ marginBottom: "8px", display: "block" }}>
-          Import Image (Convert to Pixel Art)
-        </button>
-        <button onClick={() => setShowVideoImportWizard(true)} style={{ marginBottom: "8px", display: "block" }}>
-          Import Video (Convert to Animation)
-        </button>
-        <input
-          type="file"
-          accept=".pxls"
-          onChange={(e) => {
-            if (e.target.files[0]) importProjectFile(e.target.files[0]);
-            e.target.value = "";
-          }}
-          style={{ marginBottom: "8px", display: "block" }}
-        />
-        <input
-          type="file"
-          accept="image/png"
-          onChange={(e) => {
-            if (e.target.files[0]) importPNG(e.target.files[0]);
-            e.target.value = ""; // reset so importing the same file twice still fires onChange
-          }}
-          style={{ marginBottom: "8px", display: "block" }}
-        />
         <input
           type="color"
+          className="editor-color-swatch"
           value={rgbaToHex(activeColor)}
           onChange={(e) => setActiveColor(hexToRgba(e.target.value))}
-          style={{ marginBottom: "8px", display: "block" }}
+          title="Active color"
         />
-       <Toolbar activeTool={activeTool} onSelectTool={setActiveTool} />
-        <CanvasViewport
-          canvasRef={canvasRef}
-          onWheel={handleWheel}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-        />
+
+        <button className="editor-icon-btn" onClick={exportPNG}>
+          <Download size={14} strokeWidth={2.5} /> PNG
+        </button>
+        <button className="editor-icon-btn" onClick={exportSpriteSheet}>
+          <LayoutGrid size={14} strokeWidth={2.5} /> Sprite Sheet
+        </button>
+        <button className="editor-icon-btn" onClick={exportGIF}>
+          <Film size={14} strokeWidth={2.5} /> GIF
+        </button>
+        <button className="editor-icon-btn" onClick={exportAPNG}>
+          <Images size={14} strokeWidth={2.5} /> APNG
+        </button>
+        <button className="editor-icon-btn" onClick={exportProjectFile}>
+          <FileArchive size={14} strokeWidth={2.5} /> Project File
+        </button>
+
+        <button
+          className="editor-icon-btn editor-icon-btn--primary"
+          onClick={() => setShowImageImportWizard(true)}
+        >
+          <ImagePlus size={14} strokeWidth={2.5} /> Import Image
+        </button>
+        <button
+          className="editor-icon-btn editor-icon-btn--primary"
+          onClick={() => setShowVideoImportWizard(true)}
+        >
+          <Video size={14} strokeWidth={2.5} /> Import Video
+        </button>
+
+        <label className="editor-icon-btn editor-icon-btn--file">
+          <FileUp size={14} strokeWidth={2.5} /> Import .pxls
+          <input
+            type="file"
+            accept=".pxls"
+            onChange={(e) => {
+              if (e.target.files[0]) importProjectFile(e.target.files[0]);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        <label className="editor-icon-btn editor-icon-btn--file">
+          <Upload size={14} strokeWidth={2.5} /> Import PNG
+          <input
+            type="file"
+            accept="image/png"
+            onChange={(e) => {
+              if (e.target.files[0]) importPNG(e.target.files[0]);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      </div>
+    </div>
+
+    <div className="editor-main">
+      <div className="editor-workspace">
+        <div className="editor-toolbar-rail">
+          <Toolbar activeTool={activeTool} onSelectTool={setActiveTool} />
+        </div>
+
+        <div className="editor-canvas-stage">
+          {isMaterializing && (
+            <p className="editor-materializing">Decoding frame...</p>
+          )}
+          <CanvasViewport
+            canvasRef={canvasRef}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+          />
+        </div>
       </div>
 
-      <LayersPanel
-        layers={layersState}
-        activeLayerIndex={activeLayerIndex}
-        onSelectLayer={setActiveLayerIndex}
-        onAddLayer={addLayer}
-        onDeleteLayer={deleteLayer}
-        onToggleVisibility={toggleLayerVisibility}
-        onSetOpacity={setLayerOpacity}
-        onRenameLayer={renameLayer}
-      />
+      <div className="editor-sidebar">
+        <div className="editor-panel">
+          <LayersPanel
+            layers={layersState}
+            activeLayerIndex={activeLayerIndex}
+            onSelectLayer={setActiveLayerIndex}
+            onAddLayer={addLayer}
+            onDeleteLayer={deleteLayer}
+            onToggleVisibility={toggleLayerVisibility}
+            onSetOpacity={setLayerOpacity}
+            onRenameLayer={renameLayer}
+          />
+        </div>
 
-      <PalettePanel
-        palette={paletteState}
-        onSaveColor={saveColorToPalette}
-        onSelectColor={setActiveColor}
-        onRemoveColor={removeColorFromPalette}
-      />
+        <div className="editor-panel">
+          <PalettePanel
+            palette={paletteState}
+            onSaveColor={saveColorToPalette}
+            onSelectColor={setActiveColor}
+            onRemoveColor={removeColorFromPalette}
+          />
+        </div>
+      </div>
+    </div>
 
+    <div className="editor-timeline-dock">
       <TimelinePanel
         frames={framesState}
         activeFrameIndex={activeFrameIndex}
@@ -1403,10 +1560,22 @@ if (libraryLoading) {
         onionSkinEnabled={onionSkinEnabled}
         onToggleOnionSkin={setOnionSkinEnabled}
         isPlaying={isPlaying}
-        onTogglePlay={() => setIsPlaying((prev) => !prev)}
+        onTogglePlay={async () => {
+          if (!isPlaying) {
+            await ensureAllFramesMaterialized();
+          }
+          setIsPlaying((prev) => !prev);
+        }}
       />
+
     </div>
-  );
+      <Toast
+        message={toast?.message}
+        variant={toast?.variant}
+        onDismiss={() => setToast(null)}
+      />
+  </div>
+);
 }
 
 export default Editor;

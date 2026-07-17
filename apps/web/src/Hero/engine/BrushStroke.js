@@ -27,21 +27,17 @@ export class TrailParticle {
     this.alpha -= this.decay * (dt * 60);
   }
 
-  render(ctx) {
-    if (this.alpha <= 0) return;
-    
-    ctx.save();
-    ctx.globalAlpha = this.alpha;
-    ctx.fillStyle = this.color;
-    
-    // Crisp pixel geometry definition
-    ctx.fillRect(
-      Math.floor(this.x - this.size / 2),
-      Math.floor(this.y - this.size / 2),
-      Math.floor(this.size),
-      Math.floor(this.size)
-    );
-    
-    ctx.restore();
-  }
+render(ctx) {
+  if (this.alpha <= 0) return;
+
+  ctx.globalAlpha = this.alpha;
+  ctx.fillStyle = this.color;
+
+  ctx.fillRect(
+    Math.floor(this.x - this.size / 2),
+    Math.floor(this.y - this.size / 2),
+    Math.floor(this.size),
+    Math.floor(this.size)
+  );
+}
 }

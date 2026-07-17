@@ -25,6 +25,7 @@ export class Particle {
     this.opacity = 0;
     this.targetOpacity = 0;
     this.color = color;
+    this.letterIndex = -1; // which letter this particle belongs to (-1 = none)
 
     // Life-cycle tracking
     this.state = ParticleState.SLEEPING;

@@ -1,0 +1,119 @@
+.heroWrapper {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: white;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.mainCanvas {
+  /* position: absolute; */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.button-div{
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  z-index: 2;
+}
+
+.ctaButton {
+  box-sizing: border-box; /* border no longer adds to the 60px height */
+  position: relative;
+  width: 168px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 12px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+/* The <a> / NavLink wrappers shouldn't be free to stretch or add their own box */
+.button-div a {
+  display: block;
+  height: 60px;
+  line-height: 0; /* prevents inline-anchor line-height from adding invisible height */
+}
+
+.ctaButton:focus-visible {
+  outline: 3px solid #e8533a;
+  outline-offset: 3px;
+}
+
+.btnText span {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+  margin-top: 2px;
+  text-transform: none;
+  color: #0F0F0F;
+}
+a{
+  text-decoration: none;
+  color: #F0F0F0;
+}
+/* GitHub — ink fill, cream trim */
+.btn-github {
+  background: white;
+  color: #0f0f0f;
+  border: 2px solid #efdca4;
+  box-shadow: 4px 4px 0 0 #efdca4;
+}
+.btn-github:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 0 #efdca4; }
+.btn-github:active { transform: translate(4px, 4px); box-shadow: 0 0 0 0 #efdca4; }
+
+/* Launch Studio — green fill, ink trim (primary) */
+.btn-primary {
+  background: white;
+  color: #0F0F0F;
+  border: 2px solid #efdca4;
+  box-shadow: 4px 4px 0 0 #efdca4;
+}
+.btn-primary:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 0 #141414; }
+.btn-primary:active { transform: translate(4px, 4px); box-shadow: 0 0 0 0 #141414; }
+
+/* How to Use — brown fill, cream trim */
+.btn-howto {
+  background: white;
+  color: #0f0f0f;
+  border: 2px solid #efdca4;
+  box-shadow: 4px 4px 0 0 #efdca4;
+}
+.btn-howto:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 0 #efdca4; }
+.btn-howto:active { transform: translate(4px, 4px); box-shadow: 0 0 0 0 #efdca4; }
+
+/* Docs — orange fill, ink trim */
+.btn-docs {
+  background: #e8533a;
+  color: #F0F0F0;
+  border: 2px solid #141414;
+  box-shadow: 4px 4px 0 0 #141414;
+}
+.btn-docs:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 0 #141414; }
+.btn-docs:active { transform: translate(4px, 4px); box-shadow: 0 0 0 0 #141414; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-github, .btn-primary, .btn-howto, .btn-docs {
+    transition: none;
+  }
+}

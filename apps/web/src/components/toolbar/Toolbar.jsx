@@ -1,31 +1,30 @@
 // apps/web/src/components/toolbar/Toolbar.jsx
+import { Pencil, Eraser, Pipette, PaintBucket, Slash, Circle, Square } from "lucide-react";
+import "./Toolbar.css";
 
 const TOOLS = [
-  { id: "pencil", label: "✏️ Pencil", shortcut: "P" },
-  { id: "eraser", label: "🧽 Eraser", shortcut: "E" },
-  { id: "eyedropper", label: "💧 Eyedropper", shortcut: "I" },
-  { id: "bucket", label: "🪣 Bucket Fill", shortcut: "B" },
-  { id: "line", label: "📏 Line", shortcut: "L" },
-  { id: "circle", label: "⭕ Circle", shortcut: "C" },
-  { id: "rectangle", label: "⬛ Rectangle", shortcut: "R" },
+  { id: "pencil", label: "Pencil", shortcut: "P", Icon: Pencil },
+  { id: "eraser", label: "Eraser", shortcut: "E", Icon: Eraser },
+  { id: "eyedropper", label: "Eyedropper", shortcut: "I", Icon: Pipette },
+  { id: "bucket", label: "Bucket Fill", shortcut: "B", Icon: PaintBucket },
+  { id: "line", label: "Line", shortcut: "L", Icon: Slash },
+  { id: "circle", label: "Circle", shortcut: "C", Icon: Circle },
+  { id: "rectangle", label: "Rectangle", shortcut: "R", Icon: Square },
 ];
 
 function Toolbar({ activeTool, onSelectTool }) {
   return (
-    <div style={{ display: "flex", gap: "6px", marginBottom: "8px", flexWrap: "wrap" }}>
-      {TOOLS.map((tool) => (
+    <div className="toolbar">
+      {TOOLS.map(({ id, label, shortcut, Icon }) => (
         <button
-          key={tool.id}
-          onClick={() => onSelectTool(tool.id)}
-          title={`${tool.label} (${tool.shortcut})`}
-          style={{
-            padding: "6px 10px",
-            border: activeTool === tool.id ? "2px solid blue" : "1px solid #ccc",
-            fontWeight: activeTool === tool.id ? "bold" : "normal",
-            cursor: "pointer",
-          }}
+          key={id}
+          onClick={() => onSelectTool(id)}
+          title={`${label} (${shortcut})`}
+          className={`toolbar-btn${activeTool === id ? " toolbar-btn--active" : ""}`}
         >
-          {tool.label}
+          <Icon size={16} strokeWidth={2.5} />
+          {label}
+          <span className="toolbar-btn__shortcut">{shortcut}</span>
         </button>
       ))}
     </div>

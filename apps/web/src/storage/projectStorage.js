@@ -2,9 +2,10 @@
 import { openDB } from 'idb';
 
 const DB_NAME = 'pixel-art-studio';
-const DB_VERSION = 2;
-const STORE_META = 'projects-meta'; // cheap to list: {name, updatedAt, thumbnail}
-const STORE_DATA = 'projects-data'; // full Document, loaded only when opening
+const DB_VERSION = 3; // bumped: added video-sources store
+const STORE_META = 'projects-meta';
+const STORE_DATA = 'projects-data';
+const STORE_VIDEO_SOURCES = 'video-sources';
 
 async function getDB() {
   return openDB(DB_NAME, DB_VERSION, {
@@ -14,6 +15,9 @@ async function getDB() {
       }
       if (!db.objectStoreNames.contains(STORE_DATA)) {
         db.createObjectStore(STORE_DATA);
+      }
+      if (!db.objectStoreNames.contains(STORE_VIDEO_SOURCES)) {
+        db.createObjectStore(STORE_VIDEO_SOURCES);
       }
     },
   });
@@ -70,4 +74,44 @@ export async function deleteProject(id) {
   const db = await getDB();
   await db.delete(STORE_META, id);
   await db.delete(STORE_DATA, id);
+  await deleteVideoSourcesForProject(id);
 }
+
+/**
+ * Saves a video source (the original video blob + the resolved pipeline
+ * settings used to convert it) so lazy video frames can be re-decoded
+ * even after the project is closed and reopened.
+ * @param {string} projectId
+ * @param {string} sourceMediaId
+ * @param {Blob} blob
+ * @param {object} pipelineSettings
+ */
+export async function saveVideoSource(projectId, sourceMediaId, blob, pipelineSettings) {
+  const db = await getDB();
+  const key = `${projectId}:${sourceMediaId}`;
+  await db.put(STORE_VIDEO_SOURCES, { blob, pipelineSettings }, key);
+}
+
+/**
+ * Loads a previously saved video source.
+ * @returns {Promise<{blob: Blob, pipelineSettings: object} | undefined>}
+ */
+export async function loadVideoSource(projectId, sourceMediaId) {
+  const db = await getDB();
+  const key = `${projectId}:${sourceMediaId}`;
+  return db.get(STORE_VIDEO_SOURCES, key);
+}
+
+/**
+ * Deletes every video source associated with a project (called when the
+ * project itself is deleted, to avoid orphaned video blobs).
+ */
+export async function deleteVideoSourcesForProject(projectId) {
+  const db = await getDB();
+  const keys = await db.getAllKeys(STORE_VIDEO_SOURCES);
+  const matching = keys.filter((k) => k.startsWith(`${projectId}:`));
+  for (const key of matching) {
+    await db.delete(STORE_VIDEO_SOURCES, key);
+  }
+}    
+

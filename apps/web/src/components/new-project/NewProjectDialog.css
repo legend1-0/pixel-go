@@ -1,0 +1,182 @@
+.new-project-dialog {
+  position: relative; /* ADDED — anchors the absolutely-positioned close button to this card, not some distant ancestor */
+  padding: 70px 170px;
+  max-width: 100%;
+  background: #faf9f5;
+  border-radius: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #0F0F0F;
+}
+
+.new-project-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.new-project-dialog__eyebrow {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #45261c;
+  margin: 0 0 4px 0;
+}
+
+.new-project-dialog__title {
+  font-size: 30px;
+  font-weight: 700;
+  margin: 0;
+  color: #141414;
+}
+
+.new-project-dialog__close {
+   position: absolute;
+    top: 20px;
+     right: 25px; 
+  box-sizing: border-box;
+  /* background: transparent; */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: 2px solid #141414;
+  border-radius: 10px;
+  color: #141414;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.new-project-dialog__close__btn{
+  font-size: 30px;
+}
+
+.new-project-dialog__close:hover {
+  box-shadow: 2px 2px 0 0 #141414;
+  transform: translate(-1px, -1px);
+}
+
+.new-project-dialog__label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #45261c;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.new-project-dialog__presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.new-project-dialog__preset {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  /* height: 74px; */
+  padding: 10px 20px;
+  background: #F0F0F0;
+  border: 2px solid #141414;
+  border-radius: 12px;
+  color: #141414;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.new-project-dialog__preset:hover {
+  transform: translate(2px, 2px);
+}
+
+.new-project-dialog__preset--active {
+  background: #5fb57f;
+  box-shadow: 3px 3px 0 0 #141414;
+}
+
+.new-project-dialog__fields {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.new-project-dialog__field {
+  flex: 1;
+}
+
+.new-project-dialog__input-wrap {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 12px;
+  background: #F0F0F0;
+  border: 2px solid #141414;
+  border-radius: 10px;
+}
+
+.new-project-dialog__input-wrap svg {
+  flex-shrink: 0;
+  color: #45261c;
+}
+
+.new-project-dialog__input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: #141414;
+  outline: none;
+}
+
+.new-project-dialog__create {
+  box-sizing: border-box;
+  width: 100%;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #e8533a;
+  border: 2px solid #141414;
+  border-radius: 12px;
+  box-shadow: 4px 4px 0 0 #141414;
+  color: #0F0F0F;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.new-project-dialog__create:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 0 #141414;
+}
+
+.new-project-dialog__create:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 0 #141414;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-project-dialog__preset,
+  .new-project-dialog__create,
+  .new-project-dialog__close {
+    transition: none;
+  }
+}
+

@@ -1,0 +1,70 @@
+/* apps/web/src/components/shared/Toast.css */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
+  padding: 14px 16px;
+  background: #faf9f5;
+  border: 2px solid #141414;
+  border-radius: 12px;
+  box-shadow: 4px 4px 0 0 #141414;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0F0F0F;
+  animation: toast-in 0.15s ease-out;
+}
+
+.toast--error {
+  border-color: #e8533a;
+  box-shadow: 4px 4px 0 0 #e8533a;
+}
+
+.toast__icon {
+  flex-shrink: 0;
+  color: #5fb57f;
+}
+
+.toast--error .toast__icon {
+  color: #e8533a;
+}
+
+.toast__message {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.toast__close {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: #45261c;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.toast__close:hover {
+  background: #efdca4;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}

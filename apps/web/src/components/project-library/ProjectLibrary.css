@@ -1,206 +1,154 @@
 .ProjectLibrary {
-
-    width:min(1400px,100%);
-    margin:auto;
-    position:relative;
-
-    padding:56px;
+  box-sizing: border-box;
+  width: min(1400px, 100%);
+  margin: auto;
+  padding: 56px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-.ProjectLibrary::before{
-
-    content:"";
-
-    position:absolute;
-
-    width:500px;
-    height:500px;
-
-    border-radius:50%;
-
-    background:
-        radial-gradient(
-            rgba(180,150,255,.12),
-            transparent 70%
-        );
-
-    top:-180px;
-    left:-180px;
-
-    pointer-events:none;
+.ProjectLibrary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 48px;
 }
 
-.ProjectLibrary-header{
-
-    display:flex;
-
-    justify-content:space-between;
-
-    align-items:flex-start;
-
-    margin-bottom:48px;
-
-}
-.ProjectLibrary-title h2 {
-  font-size: 52px;
+.ProjectLibrary-eyebrow {
+  font-size: 28px;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #45261c;
+  margin: 0 0 6px 0;
+}
+
+.ProjectLibrary-title h2 {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   margin: 0;
-  color: #111;
+  color: #141414;
 }
 
 .ProjectLibrary-title p {
-  margin-top: 8px;
-  color: #666;
-  font-size: 20px;
+  margin-top: 10px;
+  color: #45261c;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
-
 /* New project button */
-
 .ProjectLibrary-new-btn {
-  border: none;
-  background: #111;
-  color: white;
-  padding: 20px 60px;
-  border-radius: 999px;
-  font-size: 20px;
-  font-weight: 600;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 2px solid #141414;
+  background: #e8533a;
+  color: #F0F0F0;
+  padding: 26px 44px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
-
-  transition: 
-    transform 0.25s ease,
-    box-shadow 0.25s ease;
+  box-shadow: 2px 2px 0 0 #141414;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .ProjectLibrary-new-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 25px rgba(0,0,0,.15);
+  transform: translate(1px, 2px);
+  box-shadow: 1px 1px 0 0 #141414;
 }
 
+.ProjectLibrary-new-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 0 #141414;
+}
 
 /* Grid */
-
-.Project-grid{
-    display:grid;
-
-    grid-template-columns:
-        repeat(auto-fill,minmax(320px,1fr));
-
-    gap:32px;
-
-    margin-top:40px;
+.Project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 28px;
+  margin-top: 40px;
 }
 
 /* Card */
 .Project-Thumbnail-div {
- width:100%;
-    max-width:380px;
-
-    padding: 20px;
-
-  background: rgba(255,255,255,0.65);
-
-  border: 1px solid rgba(0,0,0,0.08);
-
-  border-radius: 28px;
-
-  backdrop-filter: blur(20px);
-
-  box-shadow:
-    0 10px 30px rgba(0,0,0,.06);
-
-  transition:
-    transform .35s cubic-bezier(.2,.8,.2,1),
-    box-shadow .35s ease;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 380px;
+  padding: 20px;
+  background: #faf9f5;
+  border: 2px solid #141414;
+  border-radius: 16px;
+  box-shadow: 2px 2px 0 0 #141414;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
+.Project-Thumbnail-div:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0 0 #141414;
+}
 
 .Project-thumbnail-image {
-
-  width:100%;
-
-  height:200px;
-
-  border-radius:20px;
-
-  object-fit:contain;
-
-  background:
-    linear-gradient(
-      135deg,
-      #f8f8f8,
-      #ededed
-    );
-
-  cursor:pointer;
-
-  image-rendering:pixelated;
-
-  transition:
-    transform .3s ease;
-}
-.Project-Thumbnail-div:hover {
-
-  transform:
-    translateY(-8px);
-
-  box-shadow:
-    0 25px 50px rgba(0,0,0,.12);
+  width: 100%;
+  height: 200px;
+  border-radius: 10px;
+  object-fit: contain;
+  /* background: #efdca4; */
+  padding-block: 10px;
+  cursor: pointer;
+  image-rendering: pixelated;
+  border: 1px dotted #141414;
 }
 
-
-/* Icon */
-
-.Project-Thumbnail-div svg {
-  width:28px;
-  height:28px;
-  margin-bottom:16px;
+/* Card icon */
+.Project-Thumbnail-div svg.card-icon {
+  width: 22px;
+  height: 22px;
+  margin-bottom: 14px;
+  color: #45261c;
 }
 
-
-/* Image */
-
-
-
-.Project-Thumbnail-div:hover img {
-
-  transform:scale(1.03);
-
+/* Footer row: name + delete */
+.Project-Thumbnail-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: large;
+  font-weight: bold;
+  gap: 8px;
 }
 
-
-
-/* Delete */
-
+/* Delete — quiet icon button, only speaks up on hover */
 .Project-delete-btn {
-
-  margin-top:12px;
-
-  width:100%;
-
-  padding:8px;
-
-  border-radius:999px;
-
-  border:none;
-
-  background:#f2f2f2;
-
-  color:#777;
-
-  font-size:13px;
-
-  cursor:pointer;
-
-  transition:.25s;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background: transparent;
+  color: #45261c;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
-
 
 .Project-delete-btn:hover {
+  background: #faf9f5;
+  border-color: #e8533a;
+  color: #e8533a;
+}
 
-  background:#ffeded;
-
-  color:#d00;
-
+.Project-empty {
+  color: #45261c;
+  margin-top: 24px;
+  font-size: 15px;
 }

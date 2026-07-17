@@ -1,0 +1,8 @@
+.canvas-viewport {
+  border: 2px solid #141414;
+  border-radius: 10px;
+  image-rendering: pixelated;
+  cursor: crosshair;
+  background: #fff;
+  display: block;
+}

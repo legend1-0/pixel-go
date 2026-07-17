@@ -1,0 +1,45 @@
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toolbar-btn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  background: #faf9f5;
+  border: 2px solid #141414;
+  border-radius: 10px;
+  color: #0F0F0F;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.toolbar-btn:hover {
+  background: #efdca4;
+}
+
+.toolbar-btn--active {
+  background: #5fb57f;
+  box-shadow: 3px 3px 0 0 #141414;
+  transform: translate(-1px, -1px);
+}
+
+.toolbar-btn__shortcut {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: #45261c;
+  opacity: 0.7;
+}
+
+.toolbar-btn--active .toolbar-btn__shortcut {
+  color: #141414;
+}

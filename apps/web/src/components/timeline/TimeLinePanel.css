@@ -1,0 +1,116 @@
+.timeline-panel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.timeline-panel__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.timeline-panel__btn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  background: #faf9f5;
+  border: 2px solid #141414;
+  border-radius: 10px;
+  color: #0F0F0F;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.timeline-panel__btn:hover {
+  background: #efdca4;
+  box-shadow: 2px 2px 0 0 #141414;
+  transform: translate(-1px, -1px);
+}
+
+.timeline-panel__btn--play {
+  background: #5fb57f;
+}
+
+.timeline-panel__btn--play:hover {
+  background: #4fa06e;
+}
+
+.timeline-panel__btn--onion {
+  background: #efdca4;
+}
+
+.timeline-panel__btn--onion.timeline-panel__btn--active {
+  background: #e8533a;
+  color: #0F0F0F;
+}
+
+.timeline-panel__strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  flex: 1;
+}
+
+.frame-chip {
+  box-sizing: border-box;
+  min-width: 88px;
+  padding: 8px;
+  background: #faf9f5;
+  border: 2px solid #141414;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: center;
+  flex-shrink: 0;
+  transition: box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.frame-chip--active {
+  background: #efdca4;
+  box-shadow: 3px 3px 0 0 #5fb57f;
+}
+
+.frame-chip__name {
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.frame-chip__actions {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.frame-chip__icon-btn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  color: #45261c;
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+
+.frame-chip__icon-btn:hover {
+  background: #faf9f5;
+  border-color: #141414;
+  color: #141414;
+}
+
+.frame-chip__icon-btn--delete:hover {
+  border-color: #e8533a;
+  color: #e8533a;
+}

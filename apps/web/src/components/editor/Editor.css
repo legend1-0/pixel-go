@@ -1,0 +1,272 @@
+.editor-page {
+  min-height: 100vh;
+  background: #faf9f5;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #0F0F0F;
+}
+
+/* ---- Top bar ---- */
+.editor-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px 24px;
+  background: #efdca4;
+  border-bottom: 2px solid #141414;
+}
+
+.editor-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.editor-project-name {
+  font-size: 18px;
+  font-weight: 700;
+  min-width: 160px;
+}
+
+.editor-back-btn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 14px;
+  background: transparent;
+  border: 2px solid #141414;
+  border-radius: 10px;
+  color: #141414;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.editor-back-btn:hover {
+  box-shadow: 3px 3px 0 0 #141414;
+  transform: translate(-1px, -1px);
+}
+
+.editor-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Small square/pill icon buttons shared by export/import actions */
+.editor-icon-btn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 12px;
+  background: #faf9f5;
+  border: 2px solid #141414;
+  border-radius: 10px;
+  color: #141414;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.editor-icon-btn:hover {
+  background: #efdca4;
+  box-shadow: 2px 2px 0 0 #141414;
+  transform: translate(-1px, -1px);
+}
+
+.editor-icon-btn--primary {
+  background: #5fb57f;
+}
+
+.editor-icon-btn--primary:hover {
+  background: #4fa06e;
+}
+
+.editor-icon-btn--file {
+  position: relative;
+  overflow: hidden;
+}
+
+.editor-icon-btn--file input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.editor-select-wrap {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px;
+  background: #faf9f5;
+  border: 2px solid #141414;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #45261c;
+}
+
+.editor-select-wrap select {
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  color: #141414;
+  outline: none;
+  cursor: pointer;
+}
+
+.editor-color-swatch {
+  box-sizing: border-box;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 2px solid #141414;
+  border-radius: 10px;
+  cursor: pointer;
+  background: none;
+}
+
+.editor-color-swatch::-webkit-color-swatch-wrapper {
+  padding: 3px;
+}
+
+.editor-color-swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: 6px;
+}
+
+/* ---- Main layout ---- */
+.editor-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 20px 24px;
+  flex-wrap: wrap;
+}
+
+.editor-workspace {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.editor-toolbar-rail {
+  background: #faf9f5;
+  border: 2px solid #141414;
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 4px 4px 0 0 #141414;
+}
+
+.editor-canvas-stage {
+  flex: 1;
+  min-width: 320px;
+  background: #F0F0F0;
+  border: 2px solid #141414;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 5px 5px 0 0 #141414;
+}
+
+.editor-materializing {
+  margin: 0 0 10px 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #45261c;
+  letter-spacing: 0.02em;
+}
+
+.editor-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 280px;
+  flex-shrink: 0;
+}
+
+.editor-panel {
+  background: #faf9f5;
+  border: 2px solid #141414;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 4px 4px 0 0 #141414;
+}
+
+.editor-timeline-dock {
+  margin: 0 24px 24px;
+  background: #faf9f5;
+  border: 2px solid #141414;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 4px 4px 0 0 #141414;
+}
+
+/* ---- Modal ---- */
+.editor-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 20, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 24px;
+}
+
+.editor-modal-card {
+  background: #faf9f5;
+  border: 2px solid #141414;
+  border-radius: 16px;
+  box-shadow: 6px 6px 0 0 #141414;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+/* ---- Loading states ---- */
+.editor-loading {
+  padding: 48px 24px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #45261c;
+}
+
+.editor-projects-page {
+  padding: 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor-back-btn,
+  .editor-icon-btn {
+    transition: none;
+  }
+}
+/* Custom chevron replacing the native select arrow everywhere in the editor */
+.editor-select-wrap select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 20px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23141414' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0 center;
+}

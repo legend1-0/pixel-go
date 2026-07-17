@@ -1,5 +1,7 @@
 // apps/web/src/components/timeline/TimelinePanel.jsx
+import { Plus, Play, Pause, Layers, Copy, Trash2 } from "lucide-react";
 import InlineEditableName from "../shared/InlineEditableName";
+import "./TimeLinePanel.css";
 
 function TimelinePanel({
   frames,
@@ -15,55 +17,67 @@ function TimelinePanel({
   onTogglePlay,
 }) {
   return (
-    <div style={{ width: "250px" }}>
-      <button onClick={onAddFrame}>+ Add Frame</button>
-      <button onClick={onTogglePlay} style={{ marginLeft: "6px" }}>
-        {isPlaying ? "⏸ Pause" : "▶ Play"}
-       </button>
-      <label style={{ display: "block", marginTop: "6px" }}>
-        <input
-          type="checkbox"
-          checked={onionSkinEnabled}
-          onChange={(e) => onToggleOnionSkin(e.target.checked)}
-        />
-        Onion Skin
-      </label>
+    <div className="timeline-panel">
+      <div className="timeline-panel__controls">
+        <button className="timeline-panel__btn" onClick={onAddFrame}>
+          <Plus size={15} strokeWidth={2.5} />
+          Frame
+        </button>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
+        <button className="timeline-panel__btn timeline-panel__btn--play" onClick={onTogglePlay}>
+          {isPlaying ? <Pause size={15} strokeWidth={2.5} /> : <Play size={15} strokeWidth={2.5} />}
+          {isPlaying ? "Pause" : "Play"}
+        </button>
+
+        <button
+          className={`timeline-panel__btn timeline-panel__btn--onion${
+            onionSkinEnabled ? " timeline-panel__btn--active" : ""
+          }`}
+          onClick={() => onToggleOnionSkin(!onionSkinEnabled)}
+        >
+          <Layers size={15} strokeWidth={2.5} />
+          Onion Skin
+        </button>
+      </div>
+
+      <div className="timeline-panel__strip">
         {frames.map((frame, index) => (
           <div
             key={frame.id}
             onClick={() => onSwitchFrame(index)}
-            style={{
-              padding: "4px",
-              border: index === activeFrameIndex ? "2px solid blue" : "1px solid #ccc",
-              cursor: "pointer",
-              textAlign: "center",
-            }}
+            className={`frame-chip${index === activeFrameIndex ? " frame-chip--active" : ""}`}
           >
-            <div>
+            <div className="frame-chip__name">
               <InlineEditableName
                 value={frame.name}
                 placeholder={`Frame ${index + 1}`}
                 onChange={(newName) => onRenameFrame(index, newName)}
               />
             </div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDuplicateFrame(index);
-              }}
-            >
-              Duplicate
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteFrame(index);
-              }}
-            >
-              Delete
-            </button>
+            <div className="frame-chip__actions">
+              <button
+                className="frame-chip__icon-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicateFrame(index);
+                }}
+                aria-label="Duplicate frame"
+                title="Duplicate frame"
+              >
+                <Copy size={13} strokeWidth={2.5} />
+              </button>
+              <button
+                className="frame-chip__icon-btn frame-chip__icon-btn--delete"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteFrame(index);
+                }}
+                aria-label="Delete frame"
+                title="Delete frame"
+              >
+                <Trash2 size={13} strokeWidth={2.5} />
+              </button>
+            </div>
           </div>
         ))}
       </div>
