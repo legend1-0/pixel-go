@@ -1,7 +1,7 @@
 // apps/web/src/components/timeline/TimelinePanel.jsx
 import { Plus, Play, Pause, Layers, Copy, Trash2 } from "lucide-react";
 import InlineEditableName from "../shared/InlineEditableName";
-import "./TimeLinePanel.css";
+import "./TimelinePanel.css";
 
 function TimelinePanel({
   frames,
