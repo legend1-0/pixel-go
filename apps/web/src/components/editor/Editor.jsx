@@ -450,6 +450,7 @@ const handleVideoConvert = async ({ videoBlob, timestamps, pipelineSettings, fra
       blob: videoBlob,
       pipelineSettings,
       videoElementPromise: null,
+      seekQueue: Promise.resolve(), // ADDED — was missing, caused materializeFrame to crash on the very first frame
     });
     materializedVideoFrameOrderRef.current = [];
 
