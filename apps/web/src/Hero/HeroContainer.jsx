@@ -1,7 +1,9 @@
-import { useEffect, useRef } from "react";
 import { NavLink } from "react-router";
 import { useWindowSize } from "./hooks/useWindowSize";
 import { PixelEngine } from "./engine/PixelEngine";
+import { useState, useEffect, useRef } from "react"; // add useState to your existing import
+import { isMobileDevice } from "../utils/isMobileDevice";
+import DesktopOnlyNotice from "./DesktopOnlyNotice";
 import "./Hero.css";
 
 const TEXT_POSITION = { xRatio: 0.5, yRatio: 0.45 };
@@ -21,7 +23,7 @@ export default function HeroContainer() {
   const canvasRef = useRef(null);
   const engineRef = useRef(null);
   const { width, height, dpr } = useWindowSize();
-
+const [blocked] = useState(() => isMobileDevice()); // computed once on mount, never re-checked on resize
   // Derived directly during render — always in sync, no extra render pass
   const buttonTop = getButtonTop(width, height);
 
@@ -50,6 +52,10 @@ export default function HeroContainer() {
       engineRef.current.resize(width, height, dpr);
     }
   }, [width, height, dpr]);
+
+if (blocked) {
+    return <DesktopOnlyNotice />;
+  }
 
   return (
     <div className="heroWrapper">
