@@ -3,6 +3,7 @@ import { useWindowSize } from "./hooks/useWindowSize";
 import { PixelEngine } from "./engine/PixelEngine";
 import { useState, useEffect, useRef } from "react"; // add useState to your existing import
 import { isMobileDevice } from "../utils/isMobileDevice";
+import ArcText from "./ArcText";
 import "./Hero.css";
 
 const TEXT_POSITION = { xRatio: 0.5, yRatio: 0.45 };
@@ -59,19 +60,8 @@ const buttonTop = getButtonTop(width, height, isMobile);
 
   return (
     <div className="heroWrapper">
-      <div className="context-text-div">
-        <span className="context-text one">Bringing</span>
-        <span className="context-text">Retro</span>
-        {/* <span className="context-text">Pixels</span> */}
-        <span className="context-text">Back</span>
-        <span className="context-text">To</span>
-        <span className="context-text">Life</span>
-        <span className="context-text">A</span>
-        <span className="context-text">Pixel</span>
-        <span className="context-text">At</span>
-        <span className="context-text">A</span>
-        <span className="context-text">Time</span>
-      </div>
+<ArcText words={["Bringing", "Retro", "Back", "To", "Life", "A", "Pixel", "At", "A", "Time"]} />
+
       <canvas ref={canvasRef} className="mainCanvas" />
 {isMobile && (
         <p

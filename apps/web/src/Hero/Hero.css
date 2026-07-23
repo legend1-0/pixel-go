@@ -39,12 +39,12 @@
   gap: 5px;
   z-index: 3;
 }
-.context-text{
+/* .context-text{
   font-family: "Rubik Spray Paint", system-ui;
   font-size: 30px;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
    text-shadow: 4px 4px 0 0 #000149;
-}
+} */
 .one{
   transform: translateY(-20px)
 }

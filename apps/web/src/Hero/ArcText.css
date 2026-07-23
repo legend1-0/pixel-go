@@ -1,0 +1,27 @@
+.arc-text {
+  position: absolute;
+  left: 50%;
+  top: 8%;
+  transform: translateX(-50%);
+  z-index: 3;
+  pointer-events: none; /* only the words themselves should be clickable/hoverable */
+}
+
+.arc-text__word {
+  position: absolute;
+  top: 100%; /* pivot sits at the bottom edge of the .arc-text box */
+  left: 50%;
+  transform-origin: center;
+  white-space: nowrap;
+  font-family: "Rubik Spray Paint", system-ui;
+  font-size: 22px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arc-text__word {
+    transition: color 0.15s ease;
+  }
+}
