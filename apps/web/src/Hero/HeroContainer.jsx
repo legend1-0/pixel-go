@@ -3,7 +3,6 @@ import { useWindowSize } from "./hooks/useWindowSize";
 import { PixelEngine } from "./engine/PixelEngine";
 import { useState, useEffect, useRef } from "react"; // add useState to your existing import
 import { isMobileDevice } from "../utils/isMobileDevice";
-import DesktopOnlyNotice from "./DesktopOnlyNotice";
 import "./Hero.css";
 
 const TEXT_POSITION = { xRatio: 0.5, yRatio: 0.45 };
@@ -11,22 +10,26 @@ const FONT_SIZE_RATIO = 4;
 const GAP_BELOW_TEXT = 20;
 
 // Pure function — no state needed, just recompute on every render
-function getButtonTop(width, height) {
+const SUBTITLE_GAP = 50;
+const SUBTITLE_HEIGHT_ESTIMATE = 24;
+
+function getButtonTop(width, height, showSubtitle) {
   const fontSize = Math.min(width * FONT_SIZE_RATIO, 170);
   const lineHeight = fontSize * 1.1;
   const textCenterY = height * TEXT_POSITION.yRatio;
   const textBottomY = textCenterY + lineHeight / 2;
-  return textBottomY + GAP_BELOW_TEXT;
+  const subtitleExtra = showSubtitle ? SUBTITLE_HEIGHT_ESTIMATE + SUBTITLE_GAP : 0;
+  return textBottomY + GAP_BELOW_TEXT + subtitleExtra;
 }
 
 export default function HeroContainer() {
+  const [isMobile] = useState(() => isMobileDevice());
   const canvasRef = useRef(null);
   const engineRef = useRef(null);
   const { width, height, dpr } = useWindowSize();
-const [blocked] = useState(() => isMobileDevice()); // computed once on mount, never re-checked on resize
   // Derived directly during render — always in sync, no extra render pass
-  const buttonTop = getButtonTop(width, height);
-
+const buttonTop = getButtonTop(width, height, isMobile);
+  const subtitleTop = buttonTop - (isMobile ? SUBTITLE_HEIGHT_ESTIMATE + SUBTITLE_GAP : 0);
   useEffect(() => {
     if (canvasRef.current) {
       engineRef.current = new PixelEngine(canvasRef.current, {
@@ -53,13 +56,41 @@ const [blocked] = useState(() => isMobileDevice()); // computed once on mount, n
     }
   }, [width, height, dpr]);
 
-if (blocked) {
-    return <DesktopOnlyNotice />;
-  }
 
   return (
     <div className="heroWrapper">
+      <div className="context-text-div">
+        <span className="context-text one">Bringing</span>
+        <span className="context-text">Retro</span>
+        {/* <span className="context-text">Pixels</span> */}
+        <span className="context-text">Back</span>
+        <span className="context-text">To</span>
+        <span className="context-text">Life</span>
+        <span className="context-text">A</span>
+        <span className="context-text">Pixel</span>
+        <span className="context-text">At</span>
+        <span className="context-text">A</span>
+        <span className="context-text">Time</span>
+      </div>
       <canvas ref={canvasRef} className="mainCanvas" />
+{isMobile && (
+        <p
+          style={{
+            position: "absolute",
+            top: `${subtitleTop}px`,
+            left: "50%",
+            transform: "translateX(-50%)",
+            textAlign: "center",
+            fontSize: "20px",
+            fontWeight: 600,
+            color: "#45261c",
+            margin: 0,
+            zIndex: 2,
+          }}
+        >
+          Pixel Go is only available on desktop right now.
+        </p>
+      )}
 
       <div className="button-div" style={{ top: `${buttonTop}px` }}>
         <a href="https://github.com/legend1-0/pixel-go">

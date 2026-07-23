@@ -1,6 +1,6 @@
 // apps/web/src/components/how-to-use/HowToUsePage.jsx
 import { NavLink } from "react-router";
-
+import './HowToUsePage.css'
 const SHORTCUTS = [
   ["P", "Pencil"],
   ["E", "Eraser"],
@@ -17,8 +17,9 @@ const SHORTCUTS = [
 
 export default function HowToUsePage() {
   return (
-    <div style={{ maxWidth: "560px", margin: "60px auto", padding: "0 24px", fontFamily: "-apple-system, sans-serif" }}>
-      <NavLink to="/">← Back home</NavLink>
+  <div className="container">
+      <NavLink to="/" className='back-btn'>← Back home</NavLink>
+    <div className="instruction">
       <h1 style={{ marginTop: "16px" }}>How to Use Pixel Art Studio</h1>
 
       <h2 style={{ marginTop: "32px", fontSize: "18px" }}>Keyboard Shortcuts</h2>
@@ -42,5 +43,6 @@ export default function HowToUsePage() {
         <li>Export your work as PNG, Sprite Sheet, GIF, APNG, or a full Project File</li>
       </ol>
     </div>
+  </div>
   );
 }

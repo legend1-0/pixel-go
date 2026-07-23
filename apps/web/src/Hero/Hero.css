@@ -25,21 +25,46 @@
   align-items: center;
   gap: 16px;
   z-index: 2;
-  width: min(720px, 92vw);
+  width: min(900px, 92vw);
 }
+.context-text-div{
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  top: 28%;
+  /* flex-wrap: wrap; */
+  /* justify-content: space-even; */
+  /* align-items: center; */
+  gap: 5px;
+  z-index: 3;
+}
+.context-text{
+  font-family: "Rubik Spray Paint", system-ui;
+  font-size: 30px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+   text-shadow: 4px 4px 0 0 #000149;
+}
+.one{
+  transform: translateY(-20px)
+}
+.one:hover{
+  color: #e8533a;
+}
+.context-text:hover { transform: translate(2px, 2px)}
 
 .ctaButton {
   box-sizing: border-box;
   position: relative;
-  flex: 1 1 140px;
-  max-width: 168px;
-  height: 60px;
+  flex: 1 1 200px;
+  max-width: 228px;
+  height: 70px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   border-radius: 12px;
-  padding: 0 12px;
+  padding: 0 30px;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
