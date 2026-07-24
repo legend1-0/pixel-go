@@ -18,7 +18,7 @@
 
 .Header-sub {
   position: absolute;
-  top: 40%;
+  top: 30%;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
@@ -99,7 +99,7 @@ color: var(--primary-purple);
 .subtitle{
   width: 100%;
   display: flex;
-  top: 40%;
+  top: 30%;
   left: 310px;
   align-items: center;
   justify-content: end;

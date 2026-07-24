@@ -70,7 +70,6 @@ export default function HeroContainer() {
       >
         <div className="content">
           <span className="bitcount">
-            {/* Pixel Go */}
             <span className="bit-letter">P</span>
             <span className="bit-letter">i</span>
             <span className="bit-letter">x</span>
@@ -82,8 +81,9 @@ export default function HeroContainer() {
           </span>
         </div>
       </div>
+
       <span className="subtitle">
-        Bring Retro Back to back to life a pixel at a time
+        Bring Retro Back to Life a Pixel at a Time
       </span>
 
       {isMobile && (
