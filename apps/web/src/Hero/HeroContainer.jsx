@@ -34,7 +34,7 @@ export default function HeroContainer() {
     }
   }, [width, height, dpr]);
 
-  // Track mouse position for the header effect
+  // Track mouse position for header background effect
   const handleMouseMove = useCallback((e) => {
     if (headerRef.current) {
       const rect = headerRef.current.getBoundingClientRect();
@@ -52,7 +52,6 @@ export default function HeroContainer() {
       const x = ((e.clientX - rect.left) / rect.width) * 100;
       const y = ((e.clientY - rect.top) / rect.height) * 100;
 
-      // Set the exit position
       headerRef.current.style.setProperty("--mouse-x", `${x}%`);
       headerRef.current.style.setProperty("--mouse-y", `${y}%`);
     }
@@ -61,53 +60,59 @@ export default function HeroContainer() {
   return (
     <div className="heroWrapper">
       <canvas ref={canvasRef} className="mainCanvas" />
-      
-      <div
-        ref={headerRef}
-        className="Header-sub"
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-      >
-        <div className="content">
-          <span className="bitcount">
-            <span className="bit-letter">P</span>
-            <span className="bit-letter">i</span>
-            <span className="bit-letter">x</span>
-            <span className="bit-letter">e</span>
-            <span className="bit-letter">l</span>
-            <span> </span>
-            <span className="bit-letter">G</span>
-            <span className="bit-letter">o</span>
-          </span>
+
+      <div className="heroContent">
+        <div
+          ref={headerRef}
+          className="Header-sub"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        >
+          <div className="content">
+            <span className="bitcount">
+              <span className="bit-letter">P</span>
+              <span className="bit-letter">i</span>
+              <span className="bit-letter">x</span>
+              <span className="bit-letter">e</span>
+              <span className="bit-letter">l</span>
+              <span> </span>
+              <span className="bit-letter">G</span>
+              <span className="bit-letter">o</span>
+            </span>
+          </div>
         </div>
-      </div>
 
-      <span className="subtitle">
-        Bring Retro Back to Life a Pixel at a Time
-      </span>
+        <span className="subtitle">
+          Bring Retro Back to Life a Pixel at a Time
+        </span>
 
-      {isMobile && (
-        <p className="mobile-message">
-          Pixel Go is only available on desktop right now.
-        </p>
-      )}
+        {isMobile && (
+          <p className="mobile-message">
+            Pixel Go is optimized for desktop creation studio.
+          </p>
+        )}
 
-      <div className="button-div">
-        <a href="https://github.com/legend1-0/pixel-go">
-          <button className="ctaButton btn-github">
-            <span className="btnText">GitHub</span>
-          </button>
-        </a>
-        <NavLink to="/projects" end>
-          <button className="ctaButton btn-docs">
-            <span className="btnText">Launch Studio</span>
-          </button>
-        </NavLink>
-        <NavLink to="/howtouse" end>
-          <button className="ctaButton btn-howto">
-            <span className="btnText">How to Use</span>
-          </button>
-        </NavLink>
+        <div className="button-div">
+          <a
+            href="https://github.com/legend1-0/pixel-go"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <button className="ctaButton btn-github">
+              <span className="btnText">GitHub</span>
+            </button>
+          </a>
+          <NavLink to="/projects" end>
+            <button className="ctaButton btn-docs">
+              <span className="btnText">Launch Studio</span>
+            </button>
+          </NavLink>
+          <NavLink to="/howtouse" end>
+            <button className="ctaButton btn-howto">
+              <span className="btnText">How to Use</span>
+            </button>
+          </NavLink>
+        </div>
       </div>
     </div>
   );

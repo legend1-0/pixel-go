@@ -2,9 +2,13 @@
   position: relative;
   width: 100vw;
   height: 100vh;
+  min-height: 600px; /* Ensures vertical breathing room on short screens */
   overflow: hidden;
   background-color: white;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .mainCanvas {
@@ -16,30 +20,41 @@
   z-index: 1;
 }
 
-.Header-sub {
-  position: absolute;
-  top: 30%;
-  left: 50%;
-  transform: translateX(-50%);
+/* Central Wrapper for layout stability */
+.heroContent {
+  position: relative;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: min(92%, 1100px);
+  padding: 20px 10px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+/* Interactive Header */
+.Header-sub {
+  position: relative;
   color: #141414;
   text-align: center;
-  /* padding: 20px 40px; */
   border-radius: 12px;
   cursor: pointer;
-  position: relative;
   overflow: hidden;
   transition: color 0.4s ease;
   isolation: isolate;
-    user-select: none;
-max-width: 1000px;
-padding: 2px 2px;
-}
-.bit-letter:hover{
-color: var(--primary-purple);
+  user-select: none;
+  max-width: 1000px;
+  padding: 4px 16px;
+  margin: 0 auto;
 }
 
-/* The expanding background with clip-path for directional feel */
+.bit-letter:hover {
+  color: var(--primary-purple);
+}
+
+/* Background Clip Path Radial Expansion */
 .Header-sub::before {
   content: '';
   position: absolute;
@@ -56,18 +71,16 @@ color: var(--primary-purple);
   will-change: transform;
 }
 
-/* When hovering, expand to completely fill */
 .Header-sub:hover::before {
   transform: translate(-50%, -50%) scale(4);
 }
 
-/* When not hovering, shrink from the exit direction */
 .Header-sub:not(:hover)::before {
   transform: translate(-50%, -50%) scale(0);
   transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Optional: Add a subtle glow ring */
+/* Subtle Glow Ring */
 .Header-sub::after {
   content: '';
   position: absolute;
@@ -84,7 +97,7 @@ color: var(--primary-purple);
   will-change: transform;
 }
 
-.Heade r-sub:hover::after {
+.Header-sub:hover::after {
   transform: translate(-50%, -50%) scale(4.2);
 }
 
@@ -96,85 +109,88 @@ color: var(--primary-purple);
 .Header-sub:hover {
   color: #f0f0f0;
 }
-.subtitle{
-  width: 100%;
-  display: flex;
-  top: 30%;
-  left: 310px;
-  align-items: center;
-  justify-content: end;
-  font-size: 27px;
-  /* font-family: "Rubik Spray Paint", system-ui; */
 
-  /* margin-bottom: 10px; */
-  /* left: 50%; */
-  transform: translateX(-50%);
-  /* font-size: 30px; */
-
-}
-
-/* Rest of your styles remain the same */
-/* Content stays above */
-.Header-sub .content, .subtitle {
+.Header-sub .content {
   position: relative;
   z-index: 1;
 }
 
+/* Fluid Bitcount Title */
 .bitcount {
   font-family: "Bitcount", system-ui;
   font-optical-sizing: auto;
   font-weight: 700;
   font-style: normal;
   font-variation-settings: "slnt" 0, "CRSV" 0.5, "ELSH" 0, "ELXP" 0;
-  font-size: 150px;
+  font-size: clamp(3rem, 12vw, 9.375rem); /* Scalable from 48px to 150px */
+  line-height: 1.05;
   display: block;
+  white-space: nowrap;
 }
 
+/* Subtitle Positioning */
+.subtitle {
+  width: 100%;
+  display: block;
+  text-align: center;
+  font-size: clamp(1rem, 2.8vw, 1.6875rem); /* Scalable from 16px to 27px */
+  font-weight: 500;
+  color: #141414;
+  margin-top: 12px;
+  margin-bottom: 24px;
+}
 
-/* Button styles remain the same */
+/* Mobile Warning Message */
+.mobile-message {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e8533a;
+  background-color: rgba(232, 83, 58, 0.1);
+  border: 1px dashed #e8533a;
+  border-radius: 8px;
+  padding: 8px 16px;
+  margin: 12px 0 20px 0;
+  text-align: center;
+}
+
+/* Action Buttons Container */
 .button-div {
-  position: absolute;
-  bottom: 29%;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 26px;
-  z-index: 2;
-  width: min(900px, 92vw);
+  gap: 16px;
+  width: 100%;
+  max-width: 800px;
+  margin-top: 20px;
 }
 
-/* ... rest of your button styles ... */
+/* Link wrappers */
+.button-div a {
+  display: block;
+  text-decoration: none;
+  flex: 1 1 180px;
+  max-width: 228px;
+  min-width: 140px;
+}
+
 .ctaButton {
   box-sizing: border-box;
-  position: relative;
-  flex: 1 1 200px;
-  max-width: 228px;
-  height: 70px;
+  width: 100%;
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   border-radius: 12px;
-  padding: 0 40px;
+  padding: 0 20px;
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
   outline: none;
-  transition:
-    transform 0.12s ease,
-    box-shadow 0.12s ease;
-}
-
-/* The <a> / NavLink wrappers shouldn't be free to stretch or add their own box */
-.button-div a {
-  display: block;
-  height: 60px;
-  line-height: 0; /* prevents inline-anchor line-height from adding invisible height */
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .ctaButton:focus-visible {
@@ -192,11 +208,8 @@ color: var(--primary-purple);
   text-transform: none;
   color: #0f0f0f;
 }
-a {
-  text-decoration: none;
-  color: #f0f0f0;
-}
-/* GitHub — ink fill, cream trim */
+
+/* Button Variants */
 .btn-github {
   background: white;
   color: #0f0f0f;
@@ -212,7 +225,6 @@ a {
   box-shadow: 0 0 0 0 #efdca4;
 }
 
-/* Launch Studio — green fill, ink trim (primary) */
 .btn-primary {
   background: white;
   color: #0f0f0f;
@@ -228,7 +240,6 @@ a {
   box-shadow: 0 0 0 0 #141414;
 }
 
-/* How to Use — brown fill, cream trim */
 .btn-howto {
   background: white;
   color: #0f0f0f;
@@ -244,7 +255,6 @@ a {
   box-shadow: 0 0 0 0 #efdca4;
 }
 
-/* Docs — orange fill, ink trim */
 .btn-docs {
   background: #e8533a;
   color: #f0f0f0;
@@ -269,7 +279,23 @@ a {
   }
 }
 
+/* Screen Size Specific Adjustments */
+@media (max-width: 600px) {
+  .heroWrapper {
+    height: 100dvh; /* Smooth mobile viewport handling */
+  }
 
-.cload{
-  z-index: 10;
+  .button-div {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .button-div a {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .ctaButton {
+    height: 52px;
+  }
 }
